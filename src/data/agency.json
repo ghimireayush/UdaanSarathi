@@ -1,0 +1,112 @@
+{
+  "id": "agency_001",
+  "name": "Udaan Recruitment Agency",
+  "address": "Thamel, Kathmandu, Nepal",
+  "phone": "+977-1-4567890",
+  "mobile": "+977-9841234567",
+  "email": "info@udaanrecruitment.com",
+  "website": "www.udaanrecruitment.com",
+  "license_number": "REG-2024-001",
+  "logo_url": "/images/agency_logo.png",
+  "banner_url": "/images/agency_banner.jpg",
+  "established_year": 2020,
+  "description": "Leading recruitment agency specializing in overseas employment opportunities for Nepali workers in Gulf countries and Malaysia.",
+  "services": [
+    "Overseas Job Placement",
+    "Visa Processing",
+    "Document Verification", 
+    "Pre-departure Training",
+    "Post-placement Support"
+  ],
+  "certifications": [
+    {
+      "name": "Government License",
+      "number": "REG-2024-001",
+      "issued_by": "Department of Foreign Employment",
+      "issued_date": "2020-01-15",
+      "expiry_date": "2025-01-15"
+    },
+    {
+      "name": "ISO 9001:2015",
+      "number": "ISO-2021-4567",
+      "issued_by": "International Standards Organization",
+      "issued_date": "2021-06-20",
+      "expiry_date": "2024-06-20"
+    }
+  ],
+  "social_media": {
+    "facebook": "https://facebook.com/udaanrecruitment",
+    "instagram": "https://instagram.com/udaanrecruitment",
+    "linkedin": "https://linkedin.com/company/udaanrecruitment",
+    "twitter": "https://twitter.com/udaanrecruitment"
+  },
+  "bank_details": {
+    "bank_name": "Nepal Investment Bank",
+    "account_name": "Udaan Recruitment Agency Pvt. Ltd.",
+    "account_number": "0123456789",
+    "swift_code": "NIBLNPKT"
+  },
+  "contact_persons": [
+    {
+      "name": "Rajesh Thapa",
+      "position": "Managing Director",
+      "phone": "+977-9841234567",
+      "email": "rajesh@udaanrecruitment.com"
+    },
+    {
+      "name": "Sunita Shrestha", 
+      "position": "Operations Manager",
+      "phone": "+977-9851234567",
+      "email": "sunita@udaanrecruitment.com"
+    }
+  ],
+  "operating_hours": {
+    "weekdays": "09:00 AM - 06:00 PM",
+    "saturday": "09:00 AM - 05:00 PM",
+    "sunday": "Closed"
+  },
+  "target_countries": [
+    "UAE",
+    "Saudi Arabia",
+    "Qatar", 
+    "Kuwait",
+    "Oman",
+    "Bahrain",
+    "Malaysia",
+    "Singapore"
+  ],
+  "specializations": [
+    "Hospitality",
+    "Construction",
+    "Healthcare",
+    "Domestic Work",
+    "Security Services",
+    "Transportation"
+  ],
+  "statistics": {
+    "total_placements": 1250,
+    "active_since": "2020-01-15",
+    "success_rate": 92,
+    "countries_served": 8,
+    "partner_companies": 45,
+    "active_recruiters": 8
+  },
+  "settings": {
+    "currency": "NPR",
+    "timezone": "Asia/Kathmandu",
+    "language": "en",
+    "date_format": "DD/MM/YYYY",
+    "notifications": {
+      "email_enabled": true,
+      "sms_enabled": true,
+      "push_enabled": true
+    },
+    "features": {
+      "online_applications": true,
+      "document_upload": true,
+      "interview_scheduling": true,
+      "candidate_tracking": true,
+      "analytics_dashboard": true
+    }
+  }
+}

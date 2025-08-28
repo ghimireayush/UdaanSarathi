@@ -1,0 +1,81 @@
+{
+  "jobStatuses": {
+    "DRAFT": "draft",
+    "PUBLISHED": "published",
+    "CLOSED": "closed",
+    "PAUSED": "paused"
+  },
+  "applicationStages": {
+    "APPLIED": "applied",
+    "SHORTLISTED": "shortlisted",
+    "SCHEDULED": "scheduled",
+    "INTERVIEWED": "interviewed",
+    "SELECTED": "selected",
+    "REJECTED": "rejected"
+  },
+  "interviewStatuses": {
+    "SCHEDULED": "scheduled",
+    "COMPLETED": "completed",
+    "CANCELLED": "cancelled",
+    "NO_SHOW": "no_show"
+  },
+  "countries": [
+    "UAE",
+    "Saudi Arabia", 
+    "Qatar",
+    "Kuwait",
+    "Oman",
+    "Bahrain",
+    "Malaysia",
+    "Singapore"
+  ],
+  "jobCategories": [
+    "Cook",
+    "Chef", 
+    "Driver",
+    "Cleaner",
+    "Security Guard",
+    "Waiter",
+    "Helper",
+    "Construction Worker",
+    "Electrician",
+    "Plumber",
+    "Mechanic",
+    "Nanny",
+    "Caregiver"
+  ],
+  "interviewTypes": [
+    "In-person",
+    "Online",
+    "Phone"
+  ],
+  "educationLevels": [
+    "SLC Passed",
+    "+2 Passed",
+    "Bachelor Degree",
+    "Master Degree",
+    "Technical Diploma",
+    "Other"
+  ],
+  "genders": [
+    "Male",
+    "Female",
+    "Other"
+  ],
+  "priorities": {
+    "LOW": "low",
+    "MEDIUM": "medium",
+    "HIGH": "high",
+    "URGENT": "urgent"
+  },
+  "currencies": [
+    "AED",
+    "SAR", 
+    "QAR",
+    "KWD",
+    "OMR",
+    "BHD",
+    "MYR",
+    "SGD"
+  ]
+}

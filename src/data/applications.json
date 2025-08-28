@@ -1,0 +1,146 @@
+[
+  {
+    "id": "app_candidate_001",
+    "candidate_id": "candidate_001",
+    "job_id": "job_001",
+    "stage": "applied",
+    "applied_at": "2025-08-25T10:30:00.000Z",
+    "shortlisted_at": null,
+    "interviewed_at": null,
+    "decision_at": null,
+    "priority_score": 85,
+    "notes": "",
+    "documents": {
+      "cv": "/docs/ram_thapa_cv.pdf",
+      "photo": "/photos/ram_thapa.jpg",
+      "certificates": [
+        "/docs/ram_thapa_cooking_certificate.pdf"
+      ],
+      "passport": "/docs/ram_bahadur_thapa_passport.pdf"
+    },
+    "status": "active",
+    "recruiter_notes": "Good cooking experience, needs language improvement",
+    "score_breakdown": {
+      "experience": 8,
+      "skills": 9,
+      "language": 6,
+      "education": 7,
+      "overall": 8.5
+    }
+  },
+  {
+    "id": "app_candidate_002",
+    "candidate_id": "candidate_002", 
+    "job_id": "job_003",
+    "stage": "shortlisted",
+    "applied_at": "2025-08-23T10:30:00.000Z",
+    "shortlisted_at": "2025-08-26T10:30:00.000Z",
+    "interviewed_at": null,
+    "decision_at": null,
+    "priority_score": 78,
+    "notes": "Excellent communication skills, previous experience in cleaning",
+    "documents": {
+      "cv": "/docs/sita_shrestha_cv.pdf",
+      "photo": "/photos/sita_shrestha.jpg",
+      "certificates": [],
+      "passport": "/docs/sita_kumari_shrestha_passport.pdf"
+    },
+    "status": "active",
+    "recruiter_notes": "Strong candidate for cleaning position",
+    "score_breakdown": {
+      "experience": 7,
+      "skills": 8,
+      "language": 9,
+      "education": 8,
+      "overall": 7.8
+    }
+  },
+  {
+    "id": "app_candidate_003",
+    "candidate_id": "candidate_003",
+    "job_id": "job_002", 
+    "stage": "scheduled",
+    "applied_at": "2025-08-21T10:30:00.000Z",
+    "shortlisted_at": "2025-08-24T10:30:00.000Z",
+    "interviewed_at": null,
+    "decision_at": null,
+    "priority_score": 92,
+    "notes": "Excellent driving experience, speaks Arabic",
+    "documents": {
+      "cv": "/docs/arjun_thakuri_cv.pdf",
+      "photo": "/photos/arjun_thakuri.jpg",
+      "certificates": [
+        "/docs/arjun_thakuri_driving_license.pdf",
+        "/docs/arjun_thakuri_heavy_vehicle_certificate.pdf"
+      ],
+      "passport": "/docs/arjun_singh_thakuri_passport.pdf"
+    },
+    "status": "active",
+    "recruiter_notes": "Perfect match for driving position, multiple licenses",
+    "score_breakdown": {
+      "experience": 10,
+      "skills": 9,
+      "language": 9,
+      "education": 9,
+      "overall": 9.2
+    }
+  },
+  {
+    "id": "app_candidate_004",
+    "candidate_id": "candidate_004",
+    "job_id": "job_003",
+    "stage": "applied",
+    "applied_at": "2025-08-24T10:30:00.000Z",
+    "shortlisted_at": null,
+    "interviewed_at": null,
+    "decision_at": null,
+    "priority_score": 81,
+    "notes": "",
+    "documents": {
+      "cv": "/docs/maya_gurung_cv.pdf",
+      "photo": "/photos/maya_gurung.jpg",
+      "certificates": [
+        "/docs/maya_gurung_housekeeping_certificate.pdf"
+      ],
+      "passport": "/docs/maya_devi_gurung_passport.pdf"
+    },
+    "status": "active",
+    "recruiter_notes": "Hotel experience is valuable",
+    "score_breakdown": {
+      "experience": 8,
+      "skills": 8,
+      "language": 8,
+      "education": 8,
+      "overall": 8.1
+    }
+  },
+  {
+    "id": "app_candidate_005",
+    "candidate_id": "candidate_005",
+    "job_id": "job_004",
+    "stage": "applied",
+    "applied_at": "2025-08-27T10:30:00.000Z",
+    "shortlisted_at": null,
+    "interviewed_at": null,
+    "decision_at": null,
+    "priority_score": 75,
+    "notes": "",
+    "documents": {
+      "cv": "/docs/prakash_rai_cv.pdf",
+      "photo": "/photos/prakash_rai.jpg",
+      "certificates": [
+        "/docs/prakash_rai_security_training.pdf"
+      ],
+      "passport": "/docs/prakash_kumar_rai_passport.pdf"
+    },
+    "status": "active",
+    "recruiter_notes": "Young candidate with potential",
+    "score_breakdown": {
+      "experience": 6,
+      "skills": 7,
+      "language": 8,
+      "education": 8,
+      "overall": 7.5
+    }
+  }
+]
