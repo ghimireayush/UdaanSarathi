@@ -51,7 +51,7 @@ const Layout = ({ children }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex">
       {/* Skip to content link for accessibility */}
       <a 
         href="#main-content" 
@@ -62,108 +62,124 @@ const Layout = ({ children }) => {
         Skip to main content
       </a>
       
-      {/* Top Navigation */}
-      <nav className="bg-white shadow-sm border-b border-gray-200" role="navigation" aria-label="Main navigation">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            {/* Logo and main nav */}
-            <div className="flex">
-              <div className="flex-shrink-0 flex items-center">
+      {/* Left Sidebar Navigation */}
+      <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
+        <div className="flex flex-col flex-grow bg-white border-r border-gray-200 pt-5 pb-4 overflow-y-auto">
+          <div className="flex items-center flex-shrink-0 px-4">
+            <Link to="/dashboard" className="focus:outline-none focus:ring-2 focus:ring-primary-500 rounded">
+              <h1 className="text-xl font-bold text-primary-600">
+                Udaan Sarathi
+              </h1>
+            </Link>
+          </div>
+          <div className="mt-5 flex-grow flex flex-col">
+            <nav className="flex-1 px-2 space-y-1">
+              {navItems.map((item) => {
+                const Icon = item.icon
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200 touch-target ${
+                      isActive(item.path)
+                        ? 'bg-primary-100 text-primary-700'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    }`}
+                    aria-current={isActive(item.path) ? 'page' : undefined}
+                  >
+                    <Icon className="mr-3 flex-shrink-0 h-5 w-5" aria-hidden="true" />
+                    {item.label}
+                  </Link>
+                )
+              })}
+            </nav>
+          </div>
+          <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center" role="img" aria-label="User avatar">
+                  <User className="w-5 h-5 text-primary-600" aria-hidden="true" />
+                </div>
+              </div>
+              <div className="ml-3">
+                {user && (
+                  <>
+                    <p className="text-sm font-medium text-gray-700">{user.name}</p>
+                    <p className="text-xs font-medium text-gray-500 capitalize">{user.role}</p>
+                  </>
+                )}
+              </div>
+              <button 
+                onClick={handleLogout}
+                className="ml-auto flex-shrink-0 p-1 text-gray-400 hover:text-gray-600 focus:text-gray-600 transition-colors touch-target"
+                aria-label="Logout"
+              >
+                <LogOut className="w-5 h-5" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile menu button */}
+      <div className="md:hidden sticky top-0 z-10 bg-white border-b border-gray-200">
+        <div className="flex items-center justify-between px-4 py-2">
+          <div className="flex items-center">
+            <button 
+              className="p-2 text-gray-400 hover:text-gray-600 focus:text-gray-600 transition-colors touch-target"
+              onClick={toggleMobileMenu}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-menu"
+              aria-label="Toggle main menu"
+            >
+              {mobileMenuOpen ? (
+                <X className="w-6 h-6" aria-hidden="true" />
+              ) : (
+                <Menu className="w-6 h-6" aria-hidden="true" />
+              )}
+            </button>
+            <Link to="/dashboard" className="ml-2 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded">
+              <h1 className="text-lg font-bold text-primary-600">
+                Udaan Sarathi
+              </h1>
+            </Link>
+          </div>
+          <button 
+            className="p-2 text-gray-400 hover:text-gray-600 focus:text-gray-600 transition-colors touch-target"
+            aria-label="View notifications"
+          >
+            <Bell className="w-5 h-5" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile navigation menu */}
+      {mobileMenuOpen && (
+        <>
+          {/* Mobile menu backdrop */}
+          <div 
+            className="mobile-nav-backdrop md:hidden fixed inset-0 z-40"
+            onClick={closeMobileMenu}
+            aria-hidden="true"
+          ></div>
+          
+          {/* Mobile menu */}
+          <div 
+            id="mobile-menu"
+            className="md:hidden fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 overflow-y-auto"
+            role="menu"
+            aria-orientation="vertical"
+            aria-labelledby="mobile-menu-button"
+          >
+            <div className="pt-5 pb-4">
+              <div className="flex items-center px-4">
                 <Link to="/dashboard" className="focus:outline-none focus:ring-2 focus:ring-primary-500 rounded">
                   <h1 className="text-xl font-bold text-primary-600">
                     Udaan Sarathi
                   </h1>
                 </Link>
               </div>
-              
-              {/* Desktop Navigation */}
-              <div className="hidden lg:ml-8 lg:flex lg:space-x-8">
-                {navItems.map((item) => {
-                  const Icon = item.icon
-                  return (
-                    <Link
-                      key={item.path}
-                      to={item.path}
-                      className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors duration-200 touch-target ${
-                        isActive(item.path)
-                          ? 'border-primary-500 text-primary-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 focus:text-gray-700 focus:border-gray-300'
-                      }`}
-                      aria-current={isActive(item.path) ? 'page' : undefined}
-                    >
-                      <Icon className="w-4 h-4 mr-2" aria-hidden="true" />
-                      {item.label}
-                    </Link>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Right side - notifications and user */}
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              {/* Mobile menu button */}
-              <button 
-                className="lg:hidden p-2 text-gray-400 hover:text-gray-600 focus:text-gray-600 transition-colors touch-target"
-                onClick={toggleMobileMenu}
-                aria-expanded={mobileMenuOpen}
-                aria-controls="mobile-menu"
-                aria-label="Toggle main menu"
-              >
-                {mobileMenuOpen ? (
-                  <X className="w-6 h-6" aria-hidden="true" />
-                ) : (
-                  <Menu className="w-6 h-6" aria-hidden="true" />
-                )}
-              </button>
-              
-              <button 
-                className="p-2 text-gray-400 hover:text-gray-600 focus:text-gray-600 transition-colors touch-target"
-                aria-label="View notifications"
-              >
-                <Bell className="w-5 h-5" aria-hidden="true" />
-              </button>
-              
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center" role="img" aria-label="User avatar">
-                  <User className="w-5 h-5 text-primary-600" aria-hidden="true" />
-                </div>
-                {user && (
-                  <div className="hidden md:block">
-                    <div className="text-sm text-gray-700 font-medium">{user.name}</div>
-                    <div className="text-xs text-gray-500 capitalize">{user.role}</div>
-                  </div>
-                )}
-                <button 
-                  onClick={handleLogout}
-                  className="hidden md:flex p-2 text-gray-400 hover:text-gray-600 focus:text-gray-600 transition-colors touch-target"
-                  aria-label="Logout"
-                >
-                  <LogOut className="w-5 h-5" aria-hidden="true" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile navigation menu */}
-        {mobileMenuOpen && (
-          <>
-            {/* Mobile menu backdrop */}
-            <div 
-              className="mobile-nav-backdrop lg:hidden"
-              onClick={closeMobileMenu}
-              aria-hidden="true"
-            ></div>
-            
-            {/* Mobile menu */}
-            <div 
-              id="mobile-menu"
-              className="lg:hidden bg-white border-t border-gray-200"
-              role="menu"
-              aria-orientation="vertical"
-              aria-labelledby="mobile-menu-button"
-            >
-              <div className="pt-2 pb-3 space-y-1">
+              <nav className="mt-5 px-2 space-y-1">
                 {navItems.map((item) => {
                   const Icon = item.icon
                   return (
@@ -171,15 +187,15 @@ const Layout = ({ children }) => {
                       key={item.path}
                       to={item.path}
                       onClick={closeMobileMenu}
-                      className={`flex items-center pl-3 pr-4 py-3 border-l-4 text-base font-medium transition-colors duration-200 touch-target ${
+                      className={`group flex items-center px-2 py-2 text-base font-medium rounded-md transition-colors duration-200 touch-target ${
                         isActive(item.path)
-                          ? 'bg-primary-50 border-primary-500 text-primary-700'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 hover:border-gray-300 focus:text-gray-700 focus:bg-gray-50 focus:border-gray-300'
+                          ? 'bg-primary-100 text-primary-700'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                       }`}
                       role="menuitem"
                       aria-current={isActive(item.path) ? 'page' : undefined}
                     >
-                      <Icon className="w-5 h-5 mr-3" aria-hidden="true" />
+                      <Icon className="mr-3 flex-shrink-0 h-6 w-6" aria-hidden="true" />
                       {item.label}
                     </Link>
                   )
@@ -190,21 +206,21 @@ const Layout = ({ children }) => {
                       handleLogout()
                       closeMobileMenu()
                     }}
-                    className="flex items-center pl-3 pr-4 py-3 border-l-4 text-base font-medium transition-colors duration-200 touch-target border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 hover:border-gray-300 focus:text-gray-700 focus:bg-gray-50 focus:border-gray-300 w-full text-left"
+                    className="group flex items-center px-2 py-2 text-base font-medium rounded-md transition-colors duration-200 touch-target text-gray-600 hover:bg-gray-50 hover:text-gray-900 w-full text-left"
                     role="menuitem"
                   >
-                    <LogOut className="w-5 h-5 mr-3" aria-hidden="true" />
+                    <LogOut className="mr-3 flex-shrink-0 h-6 w-6" aria-hidden="true" />
                     Logout
                   </button>
                 )}
-              </div>
+              </nav>
             </div>
-          </>
-        )}
-      </nav>
+          </div>
+        </>
+      )}
 
       {/* Main content */}
-      <main id="main-content" className="flex-1" role="main">
+      <main id="main-content" className="flex-1 md:pl-64" role="main">
         {children}
       </main>
     </div>

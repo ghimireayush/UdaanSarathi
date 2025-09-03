@@ -2,31 +2,31 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { 
   Search, 
-  Filter, 
   Plus, 
-  ArrowUpDown, 
   MapPin, 
   Users, 
   Calendar,
   Eye,
   AlertCircle,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  UserCheck,
+  Clock
 } from 'lucide-react'
 import { jobService, constantsService } from '../services/index.js'
-import { format } from 'date-fns'
-import DateDisplay, { CompactDateDisplay } from '../components/DateDisplay.jsx'
+import { format, formatDistanceToNow } from 'date-fns'
+
 
 const Jobs = () => {
   const [filters, setFilters] = useState({
     search: '',
     country: 'All Countries',
     status: 'published',
-    sortBy: 'newest'
+    sortBy: 'published_date'
   })
   const [pagination, setPagination] = useState({ page: 1, limit: 10 })
   const [jobs, setJobs] = useState([])
-  const [countries, setCountries] = useState([])
+
   const [jobStatuses, setJobStatuses] = useState({})
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -39,15 +39,13 @@ const Jobs = () => {
         setIsLoading(true)
         setError(null)
         
-        const [jobsData, countriesData, statusesData, statsData] = await Promise.all([
+        const [jobsData, statusesData, statsData] = await Promise.all([
           jobService.getJobs(filters),
-          constantsService.getCountries(),
           constantsService.getJobStatuses(),
           jobService.getJobStatistics()
         ])
         
         setJobs(jobsData)
-        setCountries(countriesData)
         setJobStatuses(statusesData)
         setCountryDistribution(statsData.byCountry || {})
       } catch (err) {
@@ -70,20 +68,7 @@ const Jobs = () => {
     setPagination(prev => ({ ...prev, page: newPage }))
   }
 
-  const getStatusBadge = (status) => {
-    const statusConfig = {
-      [jobStatuses.PUBLISHED]: { class: 'chip-green', label: 'Published' },
-      [jobStatuses.DRAFT]: { class: 'chip-yellow', label: 'Draft' },
-      [jobStatuses.CLOSED]: { class: 'chip-red', label: 'Closed' },
-      [jobStatuses.PAUSED]: { class: 'chip-blue', label: 'Paused' }
-    }
-    const config = statusConfig[status] || { class: 'chip-gray', label: status }
-    return (
-      <span className={`chip ${config.class}`}>
-        {config.label}
-      </span>
-    )
-  }
+
 
   // Loading state
   if (isLoading && jobs.length === 0) {
@@ -205,10 +190,10 @@ const Jobs = () => {
                   onChange={(e) => handleFilterChange('sortBy', e.target.value)}
                   className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 >
-                  <option value="newest">Newest First</option>
-                  <option value="oldest">Oldest First</option>
-                  <option value="applications">Most Applications</option>
-                  <option value="closing">Closing Soon</option>
+                  <option value="published_date">Published Date</option>
+                  <option value="applications">Candidate Count</option>
+                  <option value="shortlisted">Shortlist Count</option>
+                  <option value="interviews">Today's Interviews</option>
                 </select>
               </div>
             </div>
@@ -225,63 +210,87 @@ const Jobs = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Job Details
+                      JOB DETAILS
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Applications
+                      APPLICATION STATUS
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
+                      POSTED
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Posted
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
+                      ACTIONS
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {jobs.map(job => (
-                    <tr key={job.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <div>
-                          <Link 
-                            to={`/jobs/${job.id}`}
-                            className="text-sm font-medium text-primary-600 hover:text-primary-800"
-                          >
-                            {job.title}
-                          </Link>
-                          <p className="text-sm text-gray-600">{job.company}</p>
-                          <div className="flex items-center text-sm text-gray-500 mt-1">
-                            <MapPin className="w-4 h-4 mr-1" />
-                            <span>{job.country}</span>
+                  {jobs.map(job => {
+                    const publishedDate = job.published_at || job.created_at
+                    const relativeDate = formatDistanceToNow(new Date(publishedDate), { addSuffix: true })
+                    const absoluteDate = format(new Date(publishedDate), 'MMM d, yyyy HH:mm')
+                    
+                    return (
+                      <tr key={job.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{job.title}</div>
+                            <div className="text-sm text-gray-500 font-mono">Ref: {job.id}</div>
+                            <div className="flex items-center text-sm text-gray-500 mt-1">
+                              <MapPin className="w-4 h-4 mr-1" />
+                              <span>{job.country}</span>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          <Users className="w-4 h-4 mr-2 text-gray-400" />
-                          <span className="text-sm text-gray-900">{job.applications_count || 0}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        {getStatusBadge(job.status)}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        <CompactDateDisplay date={job.created_at} />
-                      </td>
-                      <td className="px-6 py-4">
-                        <Link 
-                          to={`/jobs/${job.id}`}
-                          className="text-primary-600 hover:text-primary-800 text-sm"
-                        >
-                          <Eye className="w-4 h-4 mr-1 inline" />
-                          View
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm">
+                            <div className="flex items-center text-gray-900 mb-1">
+                              <Users className="w-4 h-4 mr-1" />
+                              <span className="font-medium">Applicants ({job.applications_count || 0})</span>
+                            </div>
+                            <div className="flex items-center text-gray-600 mb-1">
+                              <UserCheck className="w-4 h-4 mr-1" />
+                              <span>Shortlisted: {job.shortlisted_count || 0}</span>
+                            </div>
+                            <div className="flex items-center text-gray-600">
+                              <Clock className="w-4 h-4 mr-1" />
+                              <span>Interviews: {job.interviews_today || 0} of {job.total_interviews || 0} today</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500">
+                          <div title={absoluteDate}>
+                            <div className="font-medium">{relativeDate.replace(' ago', 'd ago').replace('about ', '')}</div>
+                            <div className="text-xs text-gray-400">{format(new Date(publishedDate), 'MMM d, yyyy')}</div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm">
+                          <div className="flex flex-col space-y-1">
+                            <Link 
+                              to={`/jobs/${job.id}`}
+                              className="text-primary-600 hover:text-primary-800 flex items-center"
+                            >
+                              <Eye className="w-4 h-4 mr-1" />
+                              View Details
+                            </Link>
+                            <Link 
+                              to={`/jobs/${job.id}?tab=applied`}
+                              className="text-gray-600 hover:text-gray-800 flex items-center"
+                            >
+                              <Users className="w-4 h-4 mr-1" />
+                              Manage Candidates
+                            </Link>
+                            <Link 
+                              to={`/jobs/${job.id}?tab=shortlisted`}
+                              className="text-gray-600 hover:text-gray-800 flex items-center"
+                            >
+                              <Calendar className="w-4 h-4 mr-1" />
+                              Schedule
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -317,14 +326,20 @@ const Jobs = () => {
         <div className="space-y-6">
           {/* Country Distribution */}
           <div className="card p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Jobs by Country</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Open job distribution by country</h3>
             <div className="space-y-3">
-              {Object.entries(countryDistribution).map(([country, count]) => (
-                <div key={country} className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">{country}</span>
-                  <span className="text-sm font-medium text-gray-900">{count}</span>
-                </div>
-              ))}
+              {Object.entries(countryDistribution)
+                .filter(([country, count]) => count > 0)
+                .map(([country, count]) => (
+                  <button 
+                    key={country} 
+                    className="flex justify-between items-center w-full text-left hover:bg-gray-50 p-2 rounded"
+                    onClick={() => handleFilterChange('country', country)}
+                  >
+                    <span className="text-sm text-gray-600">{country}</span>
+                    <span className="text-sm font-medium text-gray-900">{count}</span>
+                  </button>
+                ))}
             </div>
           </div>
         </div>

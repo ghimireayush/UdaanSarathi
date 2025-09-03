@@ -41,33 +41,40 @@ class JobService {
     }
 
     if (filters.search) {
-      const searchTerm = filters.search.toLowerCase()
+      const searchTerm = filters.search.toLowerCase();
       filteredJobs = filteredJobs.filter(job => 
+        job.id.toLowerCase().includes(searchTerm) ||
         job.title.toLowerCase().includes(searchTerm) ||
         job.company.toLowerCase().includes(searchTerm) ||
         job.description.toLowerCase().includes(searchTerm) ||
-        job.tags.some(tag => tag.toLowerCase().includes(searchTerm))
-      )
+        job.tags.some(tag => tag.toLowerCase().includes(searchTerm)) ||
+        (job.published_at && job.published_at.includes(searchTerm)) ||
+        job.created_at.includes(searchTerm)
+      );
     }
 
     // Apply sorting
     if (filters.sortBy) {
       filteredJobs.sort((a, b) => {
         switch (filters.sortBy) {
-          case 'newest':
-            return new Date(b.created_at) - new Date(a.created_at)
-          case 'oldest':
-            return new Date(a.created_at) - new Date(b.created_at)
+          case 'published_date':
+            const dateA = a.published_at ? new Date(a.published_at) : new Date(a.created_at);
+            const dateB = b.published_at ? new Date(b.published_at) : new Date(b.created_at);
+            return dateB - dateA;
           case 'applications':
-            return b.applications_count - a.applications_count
+            return (b.applications_count || 0) - (a.applications_count || 0);
+          case 'shortlisted':
+            return (b.shortlisted_count || 0) - (a.shortlisted_count || 0);
+          case 'interviews':
+            return (b.interviews_today || 0) - (a.interviews_today || 0);
           case 'salary':
-            return b.salary_amount - a.salary_amount
+            return b.salary_amount - a.salary_amount;
           case 'title':
-            return a.title.localeCompare(b.title)
+            return a.title.localeCompare(b.title);
           default:
-            return 0
+            return 0;
         }
-      })
+      });
     }
 
     return filteredJobs
@@ -116,6 +123,71 @@ class JobService {
   }
 
   /**
+   * Create new draft job
+   * @param {Object} draftData - Draft job data
+   * @returns {Promise<Object>} Created draft job
+   */
+  async createDraftJob(draftData) {
+    await delay(500)
+    if (shouldSimulateError()) {
+      throw new Error('Failed to create draft job')
+    }
+
+    const constants = await constantsService.getJobStatuses()
+    
+    const newDraft = {
+      id: `job_${Date.now()}`,
+      ...draftData,
+      status: constants.DRAFT,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      applications_count: 0,
+      shortlisted_count: 0,
+      interviews_today: 0,
+      total_interviews: 0,
+      view_count: 0
+    }
+
+    jobsCache.push(newDraft)
+    return deepClone(newDraft)
+  }
+
+  /**
+   * Create bulk draft jobs
+   * @param {Array} draftDataArray - Array of draft job data
+   * @returns {Promise<Array>} Created draft jobs
+   */
+  async createBulkDraftJobs(draftDataArray) {
+    await delay(800)
+    if (shouldSimulateError()) {
+      throw new Error('Failed to create bulk draft jobs')
+    }
+
+    const constants = await constantsService.getJobStatuses()
+    const createdDrafts = []
+    
+    for (const draftData of draftDataArray) {
+      const newDraft = {
+        id: `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        ...draftData,
+        status: constants.DRAFT,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        applications_count: 0,
+        shortlisted_count: 0,
+        interviews_today: 0,
+        total_interviews: 0,
+        view_count: 0
+      }
+
+      jobsCache.push(newDraft)
+      createdDrafts.push(deepClone(newDraft))
+    }
+
+    return createdDrafts
+  }
+
+  /**
    * Update job
    * @param {string} jobId - Job ID
    * @param {Object} updateData - Update data
@@ -159,6 +231,29 @@ class JobService {
 
     jobsCache.splice(jobIndex, 1)
     return true
+  }
+
+  /**
+   * Delete multiple jobs
+   * @param {Array<string>} jobIds - Array of Job IDs
+   * @returns {Promise<boolean>} Success status
+   */
+  async deleteJobs(jobIds) {
+    await delay(500)
+    if (shouldSimulateError()) {
+      throw new Error('Failed to delete jobs')
+    }
+
+    let success = true
+    for (const jobId of jobIds) {
+      const jobIndex = jobsCache.findIndex(job => job.id === jobId)
+      if (jobIndex === -1) {
+        success = false
+      } else {
+        jobsCache.splice(jobIndex, 1)
+      }
+    }
+    return success
   }
 
   /**
