@@ -36,6 +36,7 @@ import { useAccessibility } from '../hooks/useAccessibility'
 import { useI18n } from '../hooks/useI18n'
 import { InteractiveFilter, InteractiveButton, InteractiveCard, InteractivePagination, PaginationInfo } from '../components/InteractiveUI'
 import { useNotificationContext } from '../contexts/NotificationContext'
+import CandidateSummaryS2 from '../components/CandidateSummaryS2.jsx'
 
 const Applications = () => {
   const [filters, setFilters] = useState({
@@ -66,11 +67,38 @@ const Applications = () => {
   const [isUpdating, setIsUpdating] = useState(false)
   const [loadTime, setLoadTime] = useState(null)
   const [viewMode, setViewMode] = useState('grid') // 'grid' or 'list'
+  
+  // Toast notification states
+  const [showToast, setShowToast] = useState(false)
+  const [toastMessage, setToastMessage] = useState('')
+  const [toastType, setToastType] = useState('success') // 'success', 'error', 'info'
+  
+  // Additional state for bulk rejection modal
+  const [showBulkRejectModal, setShowBulkRejectModal] = useState(false)
+  const [bulkRejectionReason, setBulkRejectionReason] = useState('')
+
+  // Individual action loading states
+  const [shortlistingApps, setShortlistingApps] = useState(new Set())
+  const [rejectingApps, setRejectingApps] = useState(new Set())
+  const [movingStageApps, setMovingStageApps] = useState(new Set())
 
   // Accessibility and i18n hooks
   const { containerRef, setupRightPaneNavigation, announce } = useAccessibility()
   const { t, formatDate, formatNumber } = useI18n()
   const { success, error: notifyError, info } = useNotificationContext()
+
+  // Toast notification function
+  const showToastNotification = (message, type = 'success') => {
+    setToastMessage(message)
+    setToastType(type)
+    setShowToast(true)
+    
+    // Auto-hide after 4 seconds for success, 5 seconds for error
+    const delay = type === 'error' ? 5000 : 4000
+    setTimeout(() => {
+      setShowToast(false)
+    }, delay)
+  }
 
   // Debounced search to reduce API calls
   const debouncedSearch = useMemo(
@@ -163,6 +191,13 @@ const Applications = () => {
   }, [])
 
   const handleApplicationSelect = (applicationId) => {
+    // Find the application to check if it's rejected
+    const application = applications.find(app => app.id === applicationId)
+    if (application && application.stage === applicationStages.REJECTED) {
+      // Don't allow selection of rejected applications
+      return
+    }
+    
     const newSelected = new Set(selectedApplications)
     if (newSelected.has(applicationId)) {
       newSelected.delete(applicationId)
@@ -174,19 +209,31 @@ const Applications = () => {
 
   const handleUpdateStage = async (applicationId, targetStage, reason = null) => {
     try {
-      setIsUpdating(true)
-
-      if (targetStage === applicationStages.REJECTED && reason) {
-        await applicationService.rejectApplication(applicationId, reason)
-        success('Application Rejected', 'The application has been successfully rejected.')
+      // Set the appropriate loading state
+      if (targetStage === applicationStages.REJECTED) {
+        setRejectingApps(prev => new Set([...prev, applicationId]))
       } else {
-        await applicationService.updateApplicationStage(applicationId, targetStage)
-        success('Stage Updated', `Application stage has been updated to ${getStageLabel(targetStage)}.`)
+        setMovingStageApps(prev => new Set([...prev, applicationId]))
       }
 
-      // Refresh data to reflect changes immediately
-      const updatedApplications = await applicationService.getApplicationsWithDetails(filters)
-      setApplications(updatedApplications)
+      // Perform the actual API call first
+      if (targetStage === applicationStages.REJECTED && reason) {
+        await applicationService.rejectApplication(applicationId, reason)
+        showToastNotification('❌ Application rejected successfully!', 'success')
+      } else {
+        await applicationService.updateApplicationStage(applicationId, targetStage)
+        const stageLabel = getStageLabel(targetStage)
+        showToastNotification(`✅ Application moved to ${stageLabel} successfully!`, 'success')
+      }
+
+      // Only update UI after successful API call
+      setApplications(prevApplications => 
+        prevApplications.map(app => 
+          app.id === applicationId 
+            ? { ...app, stage: targetStage, updated_at: new Date().toISOString() }
+            : app
+        )
+      )
 
       // Close modals
       setShowStageModal(false)
@@ -197,9 +244,22 @@ const Applications = () => {
 
     } catch (err) {
       console.error('Failed to update application stage:', err)
-      notifyError('Update Failed', 'Failed to update application stage. Please try again.')
+      showToastNotification('❌ Failed to update application stage. Please try again.', 'error')
     } finally {
-      setIsUpdating(false)
+      // Clear the appropriate loading state
+      if (targetStage === applicationStages.REJECTED) {
+        setRejectingApps(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(applicationId)
+          return newSet
+        })
+      } else {
+        setMovingStageApps(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(applicationId)
+          return newSet
+        })
+      }
     }
   }
 
@@ -214,35 +274,113 @@ const Applications = () => {
   }
 
   const handleToggleShortlist = async (application) => {
-    const isCurrentlyShortlisted = application.stage === applicationStages.SHORTLISTED
-    const targetStage = isCurrentlyShortlisted ? applicationStages.APPLIED : applicationStages.SHORTLISTED
-    await handleUpdateStage(application.id, targetStage)
+    try {
+      setShortlistingApps(prev => new Set([...prev, application.id]))
+      
+      const isCurrentlyShortlisted = application.stage === applicationStages.SHORTLISTED
+      const targetStage = isCurrentlyShortlisted ? applicationStages.APPLIED : applicationStages.SHORTLISTED
+      
+      // Perform the actual API call first
+      await applicationService.updateApplicationStage(application.id, targetStage)
+      
+      // Update UI after successful API call
+      setApplications(prevApplications => 
+        prevApplications.map(app => 
+          app.id === application.id 
+            ? { ...app, stage: targetStage, updated_at: new Date().toISOString() }
+            : app
+        )
+      )
+      
+      // Show success notification
+      if (isCurrentlyShortlisted) {
+        showToastNotification('✅ Candidate removed from shortlist!', 'success')
+      } else {
+        showToastNotification('✅ Candidate shortlisted successfully!', 'success')
+      }
+      
+    } catch (err) {
+      console.error('Failed to toggle shortlist:', err)
+      showToastNotification('❌ Failed to update shortlist status. Please try again.', 'error')
+    } finally {
+      setShortlistingApps(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(application.id)
+        return newSet
+      })
+    }
   }
 
   const handleBulkAction = async (action) => {
     if (selectedApplications.size === 0) return
+
+    // For bulk rejection, show modal to get reason
+    if (action === 'reject') {
+      setShowBulkRejectModal(true)
+      return
+    }
 
     try {
       setIsUpdating(true)
       const applicationIds = Array.from(selectedApplications)
 
       if (action === 'shortlist') {
-        await applicationService.bulkUpdateStage(applicationIds, applicationStages.SHORTLISTED)
-        success('Bulk Shortlist', `${applicationIds.length} applications have been shortlisted.`)
-      } else if (action === 'reject') {
+        // Process each application individually for better tracking
         for (const appId of applicationIds) {
-          await applicationService.rejectApplication(appId, 'Bulk rejection')
+          await applicationService.updateApplicationStage(appId, applicationStages.SHORTLISTED)
         }
-        success('Bulk Rejection', `${applicationIds.length} applications have been rejected.`)
+        
+        // Update UI after successful API calls
+        setApplications(prevApplications => 
+          prevApplications.map(app => 
+            applicationIds.includes(app.id)
+              ? { ...app, stage: applicationStages.SHORTLISTED, updated_at: new Date().toISOString() }
+              : app
+          )
+        )
+        
+        showToastNotification(`✅ ${applicationIds.length} applications shortlisted successfully!`, 'success')
       }
 
-      // Refresh data
-      const updatedApplications = await applicationService.getApplicationsWithDetails(filters)
-      setApplications(updatedApplications)
       setSelectedApplications(new Set())
     } catch (err) {
       console.error('Failed to perform bulk action:', err)
-      notifyError('Bulk Action Failed', 'Failed to perform bulk action. Please try again.')
+      showToastNotification('❌ Failed to perform bulk action. Please try again.', 'error')
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  const handleBulkReject = async () => {
+    if (selectedApplications.size === 0 || !bulkRejectionReason.trim()) return
+
+    try {
+      setIsUpdating(true)
+      const applicationIds = Array.from(selectedApplications)
+
+      // Process each rejection individually with the reason
+      for (const appId of applicationIds) {
+        await applicationService.rejectApplication(appId, bulkRejectionReason)
+      }
+      
+      // Update UI after successful API calls
+      setApplications(prevApplications => 
+        prevApplications.map(app => 
+          applicationIds.includes(app.id)
+            ? { ...app, stage: applicationStages.REJECTED, updated_at: new Date().toISOString() }
+            : app
+        )
+      )
+      
+      showToastNotification(`❌ ${applicationIds.length} applications rejected successfully!`, 'success')
+      setSelectedApplications(new Set())
+      
+      // Close modal and reset
+      setShowBulkRejectModal(false)
+      setBulkRejectionReason('')
+    } catch (err) {
+      console.error('Failed to perform bulk rejection:', err)
+      showToastNotification('❌ Failed to perform bulk rejection. Please try again.', 'error')
     } finally {
       setIsUpdating(false)
     }
@@ -310,21 +448,23 @@ const Applications = () => {
     )
   }
 
-  // Handle select all applications
+  // Handle select all applications (excluding rejected ones)
   const handleSelectAll = () => {
-    if (selectedApplications.size === applications.length) {
+    const selectableApplications = applications.filter(app => app.stage !== applicationStages.REJECTED)
+    
+    if (selectedApplications.size === selectableApplications.length) {
       setSelectedApplications(new Set())
     } else {
-      setSelectedApplications(new Set(applications.map(application => application.id)))
+      setSelectedApplications(new Set(selectableApplications.map(application => application.id)))
     }
   }
 
   // Render grid view
   const renderGridView = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {applications.length > 0 ? (
         applications.map(application => (
-          <InteractiveCard key={application.id} hoverable clickable className="p-8 border-l-4 border-primary-500">
+          <InteractiveCard key={application.id} hoverable clickable className="p-6 border-l-4 border-primary-500">
             <div className="flex items-start justify-between mb-4">
               <span className={`chip ${getStageColor(application.stage)} text-xs`}>
                 {getStageLabel(application.stage)}
@@ -387,41 +527,53 @@ const Applications = () => {
             )}
 
             {/* Actions */}
-            <div className="flex justify-between items-center">
-              <div className="flex space-x-2">
-                {/* Shortlist Toggle */}
-                <InteractiveButton
-                  onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    handleToggleShortlist(application)
-                  }}
-                  variant={application.stage === applicationStages.SHORTLISTED ? 'warning' : 'secondary'}
-                  size="sm"
-                  disabled={isUpdating}
-                  loading={isUpdating}
-                  icon={UserCheck}
-                >
-                  {application.stage === applicationStages.SHORTLISTED ? 'Shortlisted' : 'Shortlist'}
-                </InteractiveButton>
+            <div className="flex justify-between items-start pt-4">
+              {application.stage === applicationStages.REJECTED ? (
+                // Show disabled state for rejected applications
+                <div className="flex flex-col space-y-3">
+                  <div className="px-4 py-2 text-xs text-gray-500 bg-gray-100 rounded-lg border border-gray-200 text-center font-medium">
+                    Application Rejected
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col space-y-3">
+                  {/* Shortlist Toggle */}
+                  <InteractiveButton
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      handleToggleShortlist(application)
+                    }}
+                    variant={application.stage === applicationStages.SHORTLISTED ? 'warning' : 'secondary'}
+                    size="sm"
+                    disabled={shortlistingApps.has(application.id)}
+                    loading={shortlistingApps.has(application.id)}
+                    icon={UserCheck}
+                    className="shadow-sm hover:shadow-md transition-shadow duration-200"
+                  >
+                    {application.stage === applicationStages.SHORTLISTED ? 'Shortlisted' : 'Shortlist'}
+                  </InteractiveButton>
 
-                {/* Stage Actions */}
-                <InteractiveButton
-                  onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    handleOpenStageModal(application, null)
-                  }}
-                  variant="secondary"
-                  size="sm"
-                  disabled={isUpdating}
-                  icon={ArrowRight}
-                >
-                  Move Stage
-                </InteractiveButton>
-              </div>
+                  {/* Stage Actions */}
+                  <InteractiveButton
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      handleOpenStageModal(application, null)
+                    }}
+                    variant="secondary"
+                    size="sm"
+                    disabled={movingStageApps.has(application.id)}
+                    loading={movingStageApps.has(application.id)}
+                    icon={ArrowRight}
+                    className="shadow-sm hover:shadow-md transition-shadow duration-200"
+                  >
+                    Move Stage
+                  </InteractiveButton>
+                </div>
+              )}
 
-              <div className="flex space-x-2">
+              <div className="flex flex-col space-y-3">
                 <InteractiveButton
                   onClick={(e) => {
                     e.preventDefault()
@@ -433,30 +585,34 @@ const Applications = () => {
                   variant="ghost"
                   size="sm"
                   icon={Eye}
+                  className="shadow-sm hover:shadow-md transition-shadow duration-200 border border-gray-200"
                 >
                   Summary
                 </InteractiveButton>
 
-                <InteractiveButton
-                  onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    handleOpenStageModal(application, applicationStages.REJECTED)
-                  }}
-                  variant="ghost"
-                  size="sm"
-                  disabled={isUpdating}
-                  icon={X}
-                  className="text-red-600 hover:text-red-800"
-                >
-                  Reject
-                </InteractiveButton>
+                {application.stage !== applicationStages.REJECTED && (
+                  <InteractiveButton
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      handleOpenStageModal(application, applicationStages.REJECTED)
+                    }}
+                    variant="ghost"
+                    size="sm"
+                    disabled={rejectingApps.has(application.id)}
+                    loading={rejectingApps.has(application.id)}
+                    icon={X}
+                    className="text-red-600 hover:text-red-800 shadow-sm hover:shadow-md transition-shadow duration-200 border border-red-200 hover:border-red-300"
+                  >
+                    Reject
+                  </InteractiveButton>
+                )}
               </div>
             </div>
           </InteractiveCard>
         ))
       ) : (
-        <div className="col-span-2 text-center py-12">
+        <div className="col-span-3 text-center py-12">
           <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No applications found</h3>
           <p className="text-gray-600">
@@ -508,7 +664,13 @@ const Applications = () => {
                     type="checkbox"
                     checked={selectedApplications.has(application.id)}
                     onChange={() => handleApplicationSelect(application.id)}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    disabled={application.stage === applicationStages.REJECTED}
+                    className={`rounded border-gray-300 text-primary-600 focus:ring-primary-500 ${
+                      application.stage === applicationStages.REJECTED 
+                        ? 'opacity-30 cursor-not-allowed' 
+                        : ''
+                    }`}
+                    title={application.stage === applicationStages.REJECTED ? 'Rejected applications cannot be selected' : ''}
                   />
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -556,30 +718,75 @@ const Applications = () => {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <button
-                    onClick={() => handleToggleShortlist(application)}
-                    className={`mr-2 ${application.stage === applicationStages.SHORTLISTED ? 'text-yellow-600' : 'text-gray-600 hover:text-gray-900'}`}
-                    disabled={isUpdating}
-                  >
-                    <UserCheck className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedCandidate(application.candidate)
-                      setSelectedApplication(application)
-                      setShowSummary(true)
-                    }}
-                    className="text-primary-600 hover:text-primary-900 mr-2"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleOpenStageModal(application, applicationStages.REJECTED)}
-                    className="text-red-600 hover:text-red-900"
-                    disabled={isUpdating}
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  {application.stage === applicationStages.REJECTED ? (
+                    // Show disabled state for rejected applications
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded border">
+                        No Actions Available
+                      </span>
+                      <button
+                        onClick={() => {
+                          setSelectedCandidate(application.candidate)
+                          setSelectedApplication(application)
+                          setShowSummary(true)
+                        }}
+                        className="text-primary-600 hover:text-primary-900"
+                        title="View Summary"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    // Show normal actions for non-rejected applications
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => handleToggleShortlist(application)}
+                        className={`${application.stage === applicationStages.SHORTLISTED ? 'text-yellow-600' : 'text-gray-600 hover:text-gray-900'}`}
+                        disabled={shortlistingApps.has(application.id)}
+                        title={shortlistingApps.has(application.id) ? 'Updating...' : 'Toggle Shortlist'}
+                      >
+                        {shortlistingApps.has(application.id) ? (
+                          <div className="animate-spin w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full" />
+                        ) : (
+                          <UserCheck className="w-4 h-4" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => handleOpenStageModal(application, null)}
+                        className="text-blue-600 hover:text-blue-900"
+                        disabled={movingStageApps.has(application.id)}
+                        title={movingStageApps.has(application.id) ? 'Moving...' : 'Move Stage'}
+                      >
+                        {movingStageApps.has(application.id) ? (
+                          <div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full" />
+                        ) : (
+                          <ArrowRight className="w-4 h-4" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedCandidate(application.candidate)
+                          setSelectedApplication(application)
+                          setShowSummary(true)
+                        }}
+                        className="text-primary-600 hover:text-primary-900"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleOpenStageModal(application, applicationStages.REJECTED)}
+                        className="text-red-600 hover:text-red-900"
+                        disabled={rejectingApps.has(application.id)}
+                        title={rejectingApps.has(application.id) ? 'Rejecting...' : 'Reject'}
+                      >
+                        {rejectingApps.has(application.id) ? (
+                          <div className="animate-spin w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full" />
+                        ) : (
+                          <X className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ))
@@ -618,9 +825,15 @@ const Applications = () => {
             }}
             variant="secondary"
             size="sm"
-            icon={selectedApplications.size === applications.length ? CheckSquare : Square}
+            icon={(() => {
+              const selectableApplications = applications.filter(app => app.stage !== applicationStages.REJECTED)
+              return selectedApplications.size === selectableApplications.length ? CheckSquare : Square
+            })()}
           >
-            Select All
+            Select All {(() => {
+              const selectableApplications = applications.filter(app => app.stage !== applicationStages.REJECTED)
+              return selectableApplications.length < applications.length ? '(Active)' : ''
+            })()}
           </InteractiveButton>
           
           {selectedApplications.size > 0 && (
@@ -757,6 +970,251 @@ const Applications = () => {
               size="md"
             />
           )}
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {showToast && (
+        <div className="fixed top-4 right-4 z-50">
+          <div className={`
+            ${toastType === 'success' ? 'bg-green-500' : toastType === 'error' ? 'bg-red-500' : 'bg-blue-500'} 
+            text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2 min-w-[300px]
+            animate-fade-in
+          `}>
+            <span className="flex-1">{toastMessage}</span>
+            <button 
+              onClick={() => setShowToast(false)}
+              className="text-white hover:text-gray-200 ml-2"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Candidate Summary Modal */}
+      {showSummary && selectedCandidate && (
+        <CandidateSummaryS2
+          candidate={selectedCandidate}
+          application={selectedApplication}
+          isOpen={showSummary}
+          onClose={() => {
+            setShowSummary(false)
+            setSelectedCandidate(null)
+            setSelectedApplication(null)
+          }}
+          onUpdateStatus={async (candidateId, newStage) => {
+            try {
+              if (selectedApplication) {
+                await handleUpdateStage(selectedApplication.id, newStage)
+                // Close modal after successful update
+                setShowSummary(false)
+                setSelectedCandidate(null)
+                setSelectedApplication(null)
+              }
+            } catch (error) {
+              console.error('Failed to update status from summary:', error)
+            }
+          }}
+          onAttachDocument={(candidateId, document) => {
+            // Handle document attachment if needed
+            console.log('Document attached:', document)
+          }}
+          workflowStages={[
+            { id: applicationStages.APPLIED, label: 'Applied' },
+            { id: applicationStages.SHORTLISTED, label: 'Shortlisted' },
+            { id: applicationStages.SCHEDULED, label: 'Scheduled' },
+            { id: applicationStages.INTERVIEWED, label: 'Interviewed' },
+            { id: applicationStages.SELECTED, label: 'Selected' },
+            { id: applicationStages.REJECTED, label: 'Rejected' }
+          ]}
+        />
+      )}
+
+      {/* Stage Selection Modal */}
+      {showStageModal && selectedApplication && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900">Update Application Stage</h3>
+              <button
+                onClick={() => {
+                  setShowStageModal(false)
+                  setSelectedApplication(null)
+                  setNewStage('')
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select New Stage
+                </label>
+                <select
+                  value={newStage}
+                  onChange={(e) => setNewStage(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value="">Choose a stage...</option>
+                  <option value={applicationStages.APPLIED}>Applied</option>
+                  <option value={applicationStages.SHORTLISTED}>Shortlisted</option>
+                  <option value={applicationStages.SCHEDULED}>Scheduled</option>
+                  <option value={applicationStages.INTERVIEWED}>Interviewed</option>
+                  <option value={applicationStages.SELECTED}>Selected</option>
+                </select>
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowStageModal(false)
+                    setSelectedApplication(null)
+                    setNewStage('')
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (newStage && selectedApplication) {
+                      handleUpdateStage(selectedApplication.id, newStage)
+                    }
+                  }}
+                  disabled={!newStage || movingStageApps.has(selectedApplication.id)}
+                  className="px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {movingStageApps.has(selectedApplication.id) ? 'Updating...' : 'Update Stage'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Modal */}
+      {showRejectModal && selectedApplication && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900">Reject Application</h3>
+              <button
+                onClick={() => {
+                  setShowRejectModal(false)
+                  setSelectedApplication(null)
+                  setRejectionReason('')
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Rejection Reason
+                </label>
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  rows={3}
+                  placeholder="Please provide a reason for rejection..."
+                />
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowRejectModal(false)
+                    setSelectedApplication(null)
+                    setRejectionReason('')
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (selectedApplication) {
+                      handleUpdateStage(selectedApplication.id, applicationStages.REJECTED, rejectionReason)
+                    }
+                  }}
+                  disabled={rejectingApps.has(selectedApplication.id)}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {rejectingApps.has(selectedApplication.id) ? 'Rejecting...' : 'Reject Application'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Reject Modal */}
+      {showBulkRejectModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900">
+                Reject {selectedApplications.size} Applications
+              </h3>
+              <button
+                onClick={() => {
+                  setShowBulkRejectModal(false)
+                  setBulkRejectionReason('')
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Rejection Reason (Required)
+                </label>
+                <textarea
+                  value={bulkRejectionReason}
+                  onChange={(e) => setBulkRejectionReason(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  rows={3}
+                  placeholder="Please provide a reason for rejecting these applications..."
+                />
+              </div>
+              
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <p className="text-sm text-yellow-800">
+                  ⚠️ This action will reject {selectedApplications.size} selected applications. This cannot be undone.
+                </p>
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowBulkRejectModal(false)
+                    setBulkRejectionReason('')
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBulkReject}
+                  disabled={!bulkRejectionReason.trim() || isUpdating}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isUpdating ? 'Rejecting...' : `Reject ${selectedApplications.size} Applications`}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

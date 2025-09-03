@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { 
   X, 
   Phone, 
@@ -22,6 +22,7 @@ import { format } from 'date-fns'
 
 const CandidateSummaryS2 = ({ 
   candidate, 
+  application,
   isOpen, 
   onClose, 
   onUpdateStatus, 
@@ -35,6 +36,10 @@ const CandidateSummaryS2 = ({
   if (!isOpen || !candidate) return null
 
   const currentStage = workflowStages.find(s => s.id === candidate.application?.stage)
+  const rejectedStage = workflowStages.find(s => s.label === 'Rejected')
+  // Check for rejected status from either the separate application prop or the candidate.application
+  const currentApplication = application || candidate.application
+  const isApplicationRejected = currentApplication?.stage === rejectedStage?.id
 
   const handleStatusUpdate = async (newStage) => {
     setIsUpdating(true)
@@ -383,21 +388,32 @@ const CandidateSummaryS2 = ({
           {/* Footer Actions */}
           <div className="p-6 border-t border-gray-200 bg-gray-50">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <span className="text-sm font-medium text-gray-700">Update Status:</span>
-                <select
-                  value={candidate.application?.stage || ''}
-                  onChange={(e) => handleStatusUpdate(e.target.value)}
-                  disabled={isUpdating}
-                  className="text-sm border border-gray-300 rounded px-3 py-1 bg-white"
-                >
-                  {workflowStages.map((stage) => (
-                    <option key={stage.id} value={stage.id}>
-                      {stage.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {isApplicationRejected ? (
+                // Show disabled state when application is rejected
+                <div className="flex items-center space-x-3">
+                  <span className="text-sm font-medium text-gray-500">Status Update:</span>
+                  <div className="px-3 py-1 text-sm text-gray-500 bg-gray-100 rounded border border-gray-200">
+                    Application Rejected - No updates allowed
+                  </div>
+                </div>
+              ) : (
+                // Show normal update status dropdown for non-rejected applications
+                <div className="flex items-center space-x-3">
+                  <span className="text-sm font-medium text-gray-700">Update Status:</span>
+                  <select
+                    value={candidate.application?.stage || ''}
+                    onChange={(e) => handleStatusUpdate(e.target.value)}
+                    disabled={isUpdating}
+                    className="text-sm border border-gray-300 rounded px-3 py-1 bg-white"
+                  >
+                    {workflowStages.map((stage) => (
+                      <option key={stage.id} value={stage.id}>
+                        {stage.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               
               <div className="flex items-center space-x-2">
                 {isUpdating && (

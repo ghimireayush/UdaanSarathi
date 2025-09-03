@@ -227,10 +227,8 @@ class JobService {
    */
   async updateJob(jobId, updateData) {
     const result = await handleServiceError(async () => {
-      await delay(400)
-      if (shouldSimulateError()) {
-        throw new Error('Failed to update job')
-      }
+      await delay(80)
+      // Removed random error simulation for 100% reliability
 
       const jobIndex = jobsCache.findIndex(job => job.id === jobId)
       if (jobIndex === -1) {
@@ -250,16 +248,24 @@ class JobService {
   }
 
   /**
+   * Update draft job
+   * @param {string} draftId - Draft ID
+   * @param {Object} updateData - Update data
+   * @returns {Promise<Object|null>} Updated draft or null if not found
+   */
+  async updateDraftJob(draftId, updateData) {
+    return this.updateJob(draftId, updateData)
+  }
+
+  /**
    * Delete job
    * @param {string} jobId - Job ID
    * @returns {Promise<boolean>} Success status
    */
   async deleteJob(jobId) {
     const result = await handleServiceError(async () => {
-      await delay(300)
-      if (shouldSimulateError()) {
-        throw new Error('Failed to delete job')
-      }
+      await delay(80)
+      // Removed random error simulation for 100% reliability
 
       const jobIndex = jobsCache.findIndex(job => job.id === jobId)
       if (jobIndex === -1) {
@@ -307,7 +313,7 @@ class JobService {
    */
   async publishJob(jobId) {
     const result = await handleServiceError(async () => {
-      await delay(300)
+      await delay(80)
       const constants = await constantsService.getJobStatuses()
       
       return this.updateJob(jobId, {

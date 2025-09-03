@@ -56,7 +56,12 @@ const Drafts = () => {
   const [drafts, setDrafts] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [isPublishing, setIsPublishing] = useState(false)
+  const [publishingDrafts, setPublishingDrafts] = useState(new Set()) // Track individual publishing states
+  const [deletingDrafts, setDeletingDrafts] = useState(new Set()) // Track individual deleting states
+  const [editingDraft, setEditingDraft] = useState(null) // Track draft being edited
+  const [showSuccessToast, setShowSuccessToast] = useState(false)
+  const [toastMessage, setToastMessage] = useState('')
+  const [toastType, setToastType] = useState('success') // 'success', 'error', 'info'
   const [draftMode, setDraftMode] = useState('manual') // 'manual', 'newspaper'
   const [formData, setFormData] = useState({
     title: '',
@@ -91,6 +96,31 @@ const Drafts = () => {
     },
     attachments: []
   })
+  
+  // Additional state for enhanced features
+  const [selectedJobTitle, setSelectedJobTitle] = useState('')
+  const [companyAutocomplete, setCompanyAutocomplete] = useState([])
+  const [notesTemplates, setNotesTemplates] = useState([
+    'Standard overseas employment terms and conditions apply.',
+    'Candidate must provide medical clearance and police clearance.',
+    'Company provides visa processing and work permit assistance.',
+    'Training will be provided for the first month.',
+    'Overtime compensation as per local labor laws.'
+  ])
+  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false)
+  const [showJobTitleDropdown, setShowJobTitleDropdown] = useState(false)
+  const [showNotesDropdown, setShowNotesDropdown] = useState(false)
+  const [expenseItems] = useState([
+    'Visa Processing Fee',
+    'Medical Examination',
+    'Police Clearance',
+    'Travel Ticket',
+    'Insurance',
+    'Work Permit',
+    'Emirates ID',
+    'Accommodation Deposit',
+    'Agent Commission'
+  ])
   const [companies, setCompanies] = useState([
     { name: 'Al Manara Restaurant', address: 'Sheikh Zayed Road, Dubai, UAE', city: 'Dubai', country: 'UAE' },
     { name: 'Emirates Logistics', address: 'Corniche Road, Abu Dhabi, UAE', city: 'Abu Dhabi', country: 'UAE' },
@@ -116,9 +146,9 @@ const Drafts = () => {
   const [showPreviewModal, setShowPreviewModal] = useState(false)
   const [previewDraft, setPreviewDraft] = useState(null)
   
-  // Mock mutation object for publish functionality
+  // Mock mutation object for compatibility
   const publishMutation = {
-    isLoading: isPublishing
+    isLoading: publishingDrafts.size > 0
   }
 
   // Debounced search to reduce API calls
@@ -161,6 +191,149 @@ const Drafts = () => {
     }))
   }
 
+  // Enhanced handlers for new features
+  const handleCompanySelect = (company) => {
+    setFormData(prev => ({
+      ...prev,
+      company: company.name,
+      companyAddress: company.address,
+      city: company.city,
+      country: company.country
+    }))
+    setShowCompanyDropdown(false)
+  }
+
+  const handleJobTitleSelect = (jobTitle) => {
+    setSelectedJobTitle(jobTitle.title)
+    setFormData(prev => ({
+      ...prev,
+      title: jobTitle.title,
+      tags: jobTitle.tags,
+      jobTitleTag: jobTitle.title
+    }))
+    setShowJobTitleDropdown(false)
+  }
+
+  const handleNotesTemplateSelect = (template) => {
+    setFormData(prev => ({
+      ...prev,
+      notes: prev.notes ? `${prev.notes}\n${template}` : template
+    }))
+    setShowNotesDropdown(false)
+  }
+
+  const handlePhoneChunkChange = (index, value) => {
+    const newChunks = [...formData.phoneNumberChunks]
+    newChunks[index] = value
+    setFormData(prev => ({
+      ...prev,
+      phoneNumberChunks: newChunks,
+      contact_phone: newChunks.join('')
+    }))
+  }
+
+  const speakPhoneNumber = () => {
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(
+        formData.phoneNumberChunks.filter(chunk => chunk).join(' ')
+      )
+      utterance.rate = 0.7
+      speechSynthesis.speak(utterance)
+    }
+  }
+
+  const handleExpenseToggle = (item, payer) => {
+    setFormData(prev => {
+      const newConfig = { ...prev.expenseConfig }
+      const oppositeKey = payer === 'employerPays' ? 'candidatePays' : 'employerPays'
+      
+      // Remove from opposite array if it exists
+      newConfig[oppositeKey] = newConfig[oppositeKey].filter(exp => exp !== item)
+      
+      // Toggle in current array
+      if (newConfig[payer].includes(item)) {
+        newConfig[payer] = newConfig[payer].filter(exp => exp !== item)
+      } else {
+        newConfig[payer] = [...newConfig[payer], item]
+      }
+      
+      return {
+        ...prev,
+        expenseConfig: newConfig
+      }
+    })
+  }
+
+  const handleImageUpload = (event) => {
+    const file = event.target.files[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setFormData(prev => ({
+          ...prev,
+          imageUrl: e.target.result,
+          attachments: [...prev.attachments, {
+            type: 'image',
+            name: file.name,
+            url: e.target.result,
+            file: file
+          }]
+        }))
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleUrlSubmit = () => {
+    if (formData.newspaperUrl) {
+      setFormData(prev => ({
+        ...prev,
+        attachments: [...prev.attachments, {
+          type: 'url',
+          name: 'Newspaper URL',
+          url: formData.newspaperUrl
+        }]
+      }))
+    }
+  }
+
+  // Toast notification function
+  const showToast = (message, type = 'success') => {
+    setToastMessage(message)
+    setToastType(type)
+    setShowSuccessToast(true)
+    
+    // Auto-hide after 4 seconds for success, 5 seconds for error
+    const delay = type === 'error' ? 5000 : 4000
+    setTimeout(() => {
+      setShowSuccessToast(false)
+    }, delay)
+  }
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.dropdown-container')) {
+        setShowCompanyDropdown(false)
+        setShowJobTitleDropdown(false)
+        setShowNotesDropdown(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
+
+  const filteredCompanies = companies.filter(company => 
+    company.name.toLowerCase().includes(formData.company.toLowerCase())
+  )
+
+  const filteredJobTitles = jobTitleDictionary.filter(job => 
+    job.title.toLowerCase().includes(formData.title.toLowerCase())
+  )
+
   const handleBulkCreate = async () => {
     try {
       const bulkDrafts = []
@@ -202,6 +375,9 @@ const Drafts = () => {
         await jobService.createDraftJob(draft)
       }
       
+      // Show success toast
+      showToast(`✅ Successfully created ${bulkDrafts.length} bulk drafts!`, 'success')
+      
       // Refresh drafts data
       const updatedDrafts = await jobService.getDraftJobs()
       setDrafts(updatedDrafts)
@@ -212,6 +388,7 @@ const Drafts = () => {
       setBulkCreateJobType('Cook')
     } catch (error) {
       console.error('Failed to create bulk drafts:', error)
+      showToast('❌ Failed to create bulk drafts. Please try again.', 'error')
     }
   }
 
@@ -236,6 +413,7 @@ const Drafts = () => {
       const newDraft = {
         title: formData.title,
         company: formData.company,
+        companyAddress: formData.companyAddress,
         country: formData.country,
         city: formData.city,
         published_at: null,
@@ -256,54 +434,71 @@ const Drafts = () => {
         contact_phone: formData.phoneNumberChunks.join('') || formData.contact_phone,
         contact_email: formData.contact_email,
         expenses: formData.expenses,
+        expenseConfig: formData.expenseConfig,
         notes: formData.notes,
-        created_at: new Date().toISOString()
+        attachments: formData.attachments,
+        created_at: editingDraft ? editingDraft.created_at : new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
 
-      await jobService.createDraftJob(newDraft)
+      if (editingDraft) {
+        // Update existing draft
+        await jobService.updateDraftJob(editingDraft.id, newDraft)
+        showToast('✅ Draft updated successfully!', 'success')
+      } else {
+        // Create new draft
+        await jobService.createDraftJob(newDraft)
+        showToast('✅ Draft created successfully!', 'success')
+      }
       
       // Refresh drafts data
       const updatedDrafts = await jobService.getDraftJobs()
       setDrafts(updatedDrafts)
       setShowCreateModal(false)
+      setEditingDraft(null)
       
       // Reset form
-      setFormData({
-        title: '',
-        company: '',
-        companyAddress: '',
-        country: '',
-        city: '',
-        salary: '',
-        currency: 'AED',
-        description: '',
-        requirements: '',
-        tags: [],
-        employment_type: 'Full-time',
-        working_hours: '8 hours/day',
-        accommodation: 'Provided',
-        food: 'Provided',
-        visa_status: 'Company will provide',
-        contract_duration: '2 years',
-        contact_person: '',
-        contact_phone: '',
-        contact_email: '',
-        expenses: [],
-        notes: '',
-        ocrText: '',
-        imageUrl: '',
-        newspaperUrl: '',
-        phoneNumberChunks: ['', '', '', ''],
-        jobTitleTag: '',
-        expenseConfig: {
-          employerPays: [],
-          candidatePays: []
-        },
-        attachments: []
-      })
+      resetForm()
     } catch (error) {
-      console.error('Failed to create draft:', error)
+      console.error('Failed to save draft:', error)
+      showToast(`❌ Failed to ${editingDraft ? 'update' : 'create'} draft. Please try again.`, 'error')
     }
+  }
+
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      company: '',
+      companyAddress: '',
+      country: '',
+      city: '',
+      salary: '',
+      currency: 'AED',
+      description: '',
+      requirements: '',
+      tags: [],
+      employment_type: 'Full-time',
+      working_hours: '8 hours/day',
+      accommodation: 'Provided',
+      food: 'Provided',
+      visa_status: 'Company will provide',
+      contract_duration: '2 years',
+      contact_person: '',
+      contact_phone: '',
+      contact_email: '',
+      expenses: [],
+      notes: '',
+      ocrText: '',
+      imageUrl: '',
+      newspaperUrl: '',
+      phoneNumberChunks: ['', '', '', ''],
+      jobTitleTag: '',
+      expenseConfig: {
+        employerPays: [],
+        candidatePays: []
+      },
+      attachments: []
+    })
   }
 
   // Fetch drafts data using service with pagination
@@ -367,17 +562,112 @@ const Drafts = () => {
 
   const handlePublish = async (draftId) => {
     try {
-      setIsPublishing(true)
+      setPublishingDrafts(prev => new Set([...prev, draftId]))
       await jobService.publishJob(draftId)
+      
+      // Show success toast
+      showToast('✅ Draft published successfully! Job is now live.', 'success')
       
       // Refresh drafts data
       const updatedDrafts = await jobService.getDraftJobs()
       setDrafts(updatedDrafts)
+      
+      // Reset pagination if needed
+      setPagination(prev => ({
+        ...prev,
+        total: updatedDrafts.length
+      }))
     } catch (error) {
       console.error('Failed to publish draft:', error)
+      showToast('❌ Failed to publish draft. Please try again.', 'error')
     } finally {
-      setIsPublishing(false)
+      setPublishingDrafts(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(draftId)
+        return newSet
+      })
     }
+  }
+
+  const handleDelete = async (draftId) => {
+    if (!confirm('Are you sure you want to delete this draft? This action cannot be undone.')) {
+      return
+    }
+    
+    try {
+      setDeletingDrafts(prev => new Set([...prev, draftId]))
+      await jobService.deleteJob(draftId)
+      
+      // Show success toast
+      showToast('✅ Draft deleted successfully!', 'success')
+      
+      // Refresh data
+      const updatedDrafts = await jobService.getDraftJobs()
+      setDrafts(updatedDrafts)
+      
+      // Reset pagination if needed
+      setPagination(prev => ({
+        ...prev,
+        total: updatedDrafts.length
+      }))
+      
+      // Remove from selected if it was selected
+      setSelectedDrafts(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(draftId)
+        return newSet
+      })
+    } catch (error) {
+      console.error('Failed to delete draft:', error)
+      showToast('❌ Failed to delete draft. Please try again.', 'error')
+    } finally {
+      setDeletingDrafts(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(draftId)
+        return newSet
+      })
+    }
+  }
+
+  const handleEdit = (draft) => {
+    // Set the draft for editing and open modal
+    setEditingDraft(draft)
+    setFormData({
+      title: draft.title || '',
+      company: draft.company || '',
+      companyAddress: draft.companyAddress || '',
+      country: draft.country || '',
+      city: draft.city || '',
+      salary: draft.salary_amount?.toString() || '',
+      currency: draft.currency || 'AED',
+      description: draft.description || '',
+      requirements: Array.isArray(draft.requirements) ? draft.requirements.join('\n') : (draft.requirements || ''),
+      tags: draft.tags || [],
+      employment_type: draft.employment_type || 'Full-time',
+      working_hours: draft.working_hours || '8 hours/day',
+      accommodation: draft.accommodation || 'Provided',
+      food: draft.food || 'Provided',
+      visa_status: draft.visa_status || 'Company will provide',
+      contract_duration: draft.contract_duration || '2 years',
+      contact_person: draft.contact_person || '',
+      contact_phone: draft.contact_phone || '',
+      contact_email: draft.contact_email || '',
+      expenses: draft.expenses || [],
+      notes: draft.notes || '',
+      ocrText: '',
+      imageUrl: '',
+      newspaperUrl: '',
+      phoneNumberChunks: draft.contact_phone ? 
+        [draft.contact_phone.slice(0,4), draft.contact_phone.slice(4,8), draft.contact_phone.slice(8,12), draft.contact_phone.slice(12,16)] : 
+        ['', '', '', ''],
+      jobTitleTag: draft.title || '',
+      expenseConfig: draft.expenseConfig || {
+        employerPays: [],
+        candidatePays: []
+      },
+      attachments: draft.attachments || []
+    })
+    setShowCreateModal(true)
   }
 
   // Get unique values for filter options
@@ -527,10 +817,10 @@ const Drafts = () => {
 
   // Render grid view
   const renderGridView = () => (
-    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-4">
       {drafts.length > 0 ? (
         drafts.map(draft => (
-          <InteractiveCard key={draft.id} hoverable clickable className="p-6 border-l-4 border-orange-500 shadow-md">
+          <InteractiveCard key={draft.id} hoverable clickable className="p-4 border-l-4 border-orange-500 shadow-md">
             <div className="flex items-start justify-between mb-4">
               <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
                 <div className="w-2 h-2 bg-orange-400 rounded-full mr-1.5"></div>
@@ -574,7 +864,7 @@ const Drafts = () => {
 
             {/* Tags */}
             {draft.tags && draft.tags.length > 0 && (
-              <div className="mb-6">
+              <div className="mb-4">
                 <div className="flex flex-wrap gap-2">
                   {draft.tags.slice(0, 3).map(tag => (
                     <span key={tag} className="text-sm bg-gray-100 text-gray-700 px-3 py-1.5 rounded-full border border-gray-200">
@@ -590,7 +880,7 @@ const Drafts = () => {
 
             {/* Description Preview */}
             {draft.description && (
-              <div className="mb-6">
+              <div className="mb-4">
                 <p className="text-base text-gray-600 line-clamp-2">
                   {draft.description}
                 </p>
@@ -598,17 +888,19 @@ const Drafts = () => {
             )}
 
             {/* Actions */}
-            <div className="flex justify-between items-center pt-5 mt-2 border-t border-gray-200">
-              <div className="flex space-x-3">
+            <div className="flex justify-between items-start pt-6 mt-4 border-t border-gray-200">
+              <div className="flex flex-col space-y-3">
                 <InteractiveButton
                   onClick={(e) => {
                     e.preventDefault()
+                    e.stopPropagation()
                     setPreviewDraft(draft)
                     setShowPreviewModal(true)
                   }}
                   variant="secondary"
                   size="sm"
                   icon={Eye}
+                  className="shadow-sm hover:shadow-md transition-shadow duration-200"
                 >
                   Preview
                 </InteractiveButton>
@@ -616,50 +908,49 @@ const Drafts = () => {
                 <InteractiveButton
                   onClick={(e) => {
                     e.preventDefault()
-                    // Edit functionality
-                    console.log('Edit draft:', draft.id)
+                    e.stopPropagation()
+                    handleEdit(draft)
                   }}
                   variant="secondary"
                   size="sm"
                   icon={Edit}
+                  className="shadow-sm hover:shadow-md transition-shadow duration-200"
                 >
                   Edit
                 </InteractiveButton>
               </div>
 
-              <div className="flex space-x-2">
+              <div className="flex flex-col space-y-3">
                 <InteractiveButton
                   onClick={(e) => {
                     e.preventDefault()
+                    e.stopPropagation()
                     handlePublish(draft.id)
                   }}
                   variant="primary"
                   size="sm"
-                  disabled={isPublishing}
-                  loading={isPublishing}
+                  disabled={publishingDrafts.has(draft.id)}
+                  loading={publishingDrafts.has(draft.id)}
                   icon={Check}
+                  className="shadow-sm hover:shadow-md transition-shadow duration-200"
                 >
-                  Publish
+                  {publishingDrafts.has(draft.id) ? 'Publishing...' : 'Publish'}
                 </InteractiveButton>
 
                 <InteractiveButton
-                  onClick={async (e) => {
+                  onClick={(e) => {
                     e.preventDefault()
-                    try {
-                      await jobService.deleteJob(draft.id)
-                      // Refresh data
-                      const updatedDrafts = await jobService.getDraftJobs()
-                      setDrafts(updatedDrafts)
-                    } catch (error) {
-                      console.error('Failed to delete draft:', error)
-                    }
+                    e.stopPropagation()
+                    handleDelete(draft.id)
                   }}
                   variant="ghost"
                   size="sm"
+                  disabled={deletingDrafts.has(draft.id)}
+                  loading={deletingDrafts.has(draft.id)}
                   icon={Trash2}
-                  className="text-red-600 hover:text-red-800"
+                  className="text-red-600 hover:text-red-800 shadow-sm hover:shadow-md transition-shadow duration-200 border border-red-200 hover:border-red-300"
                 >
-                  Delete
+                  {deletingDrafts.has(draft.id) ? 'Deleting...' : 'Delete'}
                 </InteractiveButton>
               </div>
             </div>
@@ -776,35 +1067,55 @@ const Drafts = () => {
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <div className="flex space-x-2">
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation()
                         setPreviewDraft(draft)
                         setShowPreviewModal(true)
                       }}
-                      className="text-primary-600 hover:text-primary-900"
+                      className="text-primary-600 hover:text-primary-900 disabled:opacity-50"
+                      title="Preview"
                     >
                       <Eye className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => handlePublish(draft.id)}
-                      className="text-green-600 hover:text-green-900"
-                      disabled={isPublishing}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleEdit(draft)
+                      }}
+                      className="text-blue-600 hover:text-blue-900 disabled:opacity-50"
+                      title="Edit"
                     >
-                      <Check className="w-4 h-4" />
+                      <Edit className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={async () => {
-                        try {
-                          await jobService.deleteJob(draft.id)
-                          // Refresh data
-                          const updatedDrafts = await jobService.getDraftJobs()
-                          setDrafts(updatedDrafts)
-                        } catch (error) {
-                          console.error('Failed to delete draft:', error)
-                        }
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handlePublish(draft.id)
                       }}
-                      className="text-red-600 hover:text-red-900"
+                      className="text-green-600 hover:text-green-900 disabled:opacity-50"
+                      disabled={publishingDrafts.has(draft.id)}
+                      title={publishingDrafts.has(draft.id) ? 'Publishing...' : 'Publish'}
                     >
-                      <Trash2 className="w-4 h-4" />
+                      {publishingDrafts.has(draft.id) ? (
+                        <div className="animate-spin w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full" />
+                      ) : (
+                        <Check className="w-4 h-4" />
+                      )}
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDelete(draft.id)
+                      }}
+                      className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                      disabled={deletingDrafts.has(draft.id)}
+                      title={deletingDrafts.has(draft.id) ? 'Deleting...' : 'Delete'}
+                    >
+                      {deletingDrafts.has(draft.id) ? (
+                        <div className="animate-spin w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
                     </button>
                   </div>
                 </td>
@@ -1007,120 +1318,321 @@ const Drafts = () => {
         </div>
       )}
 
-      {/* Create Draft Modal */}
+      {/* Enhanced Create Draft Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Create New Draft</h2>
+          <div className="bg-white rounded-lg w-full max-w-6xl max-h-screen overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {editingDraft ? 'Edit Job Draft' : 'Create Single Job Draft'}
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  {editingDraft ? 'Update your job draft details' : 'Create a new job draft from newspaper or manual entry'}
+                </p>
+              </div>
               <button
-                onClick={() => setShowCreateModal(false)}
+                onClick={() => {
+                  setShowCreateModal(false)
+                  setEditingDraft(null)
+                  resetForm()
+                }}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X className="w-6 h-6" />
               </button>
             </div>
             
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Job Title *</label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    placeholder="Enter job title"
-                    value={formData.title}
-                    onChange={(e) => handleInputChange('title', e.target.value)}
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Company *</label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    placeholder="Enter company name"
-                    value={formData.company}
-                    onChange={(e) => handleInputChange('company', e.target.value)}
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Country *</label>
-                  <select
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    value={formData.country}
-                    onChange={(e) => handleInputChange('country', e.target.value)}
+            <div className="p-6">
+              {/* Mode Selection */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Input Method</h3>
+                <div className="flex space-x-4">
+                  <button
+                    onClick={() => setDraftMode('newspaper')}
+                    className={`flex items-center px-4 py-2 rounded-lg border-2 transition-colors ${
+                      draftMode === 'newspaper'
+                        ? 'border-primary-500 bg-primary-50 text-primary-700'
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                    }`}
                   >
-                    <option value="">Select country</option>
-                    <option value="UAE">UAE</option>
-                    <option value="Saudi Arabia">Saudi Arabia</option>
-                    <option value="Qatar">Qatar</option>
-                    <option value="Kuwait">Kuwait</option>
-                    <option value="Oman">Oman</option>
-                    <option value="Bahrain">Bahrain</option>
-                  </select>
+                    <Image className="w-5 h-5 mr-2" />
+                    From Newspaper
+                  </button>
+                  <button
+                    onClick={() => setDraftMode('manual')}
+                    className={`flex items-center px-4 py-2 rounded-lg border-2 transition-colors ${
+                      draftMode === 'manual'
+                        ? 'border-primary-500 bg-primary-50 text-primary-700'
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                    }`}
+                  >
+                    <Edit className="w-5 h-5 mr-2" />
+                    Manual Entry
+                  </button>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    placeholder="Enter city"
-                    value={formData.city}
-                    onChange={(e) => handleInputChange('city', e.target.value)}
-                  />
+              </div>
+              {/* Newspaper Upload Section */}
+              {draftMode === 'newspaper' && (
+                <div className="bg-blue-50 rounded-lg p-6 mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload Newspaper Image or URL</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Upload Image</label>
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary-500 transition-colors">
+                        <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" id="image-upload" />
+                        <label htmlFor="image-upload" className="cursor-pointer">
+                          <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-sm text-gray-600">Click to upload newspaper image</p>
+                        </label>
+                      </div>
+                      {formData.imageUrl && <img src={formData.imageUrl} alt="Uploaded" className="mt-3 w-full h-32 object-cover rounded-lg" />}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Or Enter URL</label>
+                      <div className="flex">
+                        <input type="url" className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="https://example.com/job-ad" value={formData.newspaperUrl} onChange={(e) => handleInputChange('newspaperUrl', e.target.value)} />
+                        <button onClick={handleUrlSubmit} className="px-4 py-2 bg-primary-600 text-white rounded-r-md hover:bg-primary-700"><Link className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Salary</label>
-                  <div className="flex">
-                    <input
-                      type="number"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                      placeholder="Amount"
-                      value={formData.salary}
-                      onChange={(e) => handleInputChange('salary', e.target.value)}
-                    />
-                    <select
-                      className="border-t border-b border-r border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                      value={formData.currency}
-                      onChange={(e) => handleInputChange('currency', e.target.value)}
-                    >
-                      <option value="AED">AED</option>
-                      <option value="SAR">SAR</option>
-                      <option value="QAR">QAR</option>
-                    </select>
+              )}
+
+              {/* Company Information with Auto-suggest */}
+              <div className="bg-gray-50 rounded-lg p-6 mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Company Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="relative dropdown-container">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Company Name *</label>
+                    <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Enter company name" value={formData.company} onChange={(e) => { handleInputChange('company', e.target.value); setShowCompanyDropdown(true); }} onFocus={() => setShowCompanyDropdown(true)} />
+                    {showCompanyDropdown && filteredCompanies.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        {filteredCompanies.map((company, index) => (
+                          <button key={index} onClick={() => handleCompanySelect(company)} className="w-full px-3 py-2 text-left hover:bg-gray-50">
+                            <div className="font-medium">{company.name}</div>
+                            <div className="text-sm text-gray-600">{company.address}</div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Company Address</label>
+                    <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Auto-filled from company selection" value={formData.companyAddress} onChange={(e) => handleInputChange('companyAddress', e.target.value)} />
                   </div>
                 </div>
               </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                <textarea
-                  rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  placeholder="Enter job description"
-                  value={formData.description}
-                  onChange={(e) => handleInputChange('description', e.target.value)}
-                />
+
+              {/* Job Title with Dictionary */}
+              <div className="bg-gray-50 rounded-lg p-6 mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Job Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="relative dropdown-container">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Job Title * (Select from dictionary)</label>
+                    <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Enter job title" value={formData.title} onChange={(e) => { handleInputChange('title', e.target.value); setShowJobTitleDropdown(true); }} onFocus={() => setShowJobTitleDropdown(true)} />
+                    {showJobTitleDropdown && filteredJobTitles.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        {filteredJobTitles.map((job, index) => (
+                          <button key={index} onClick={() => handleJobTitleSelect(job)} className="w-full px-3 py-2 text-left hover:bg-gray-50">
+                            <div className="font-medium">{job.title}</div>
+                            <div className="text-sm text-gray-600">Tags: {job.tags.join(', ')}</div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Selected Tags</label>
+                    <div className="min-h-[42px] px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
+                      {formData.tags.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {formData.tags.map((tag, index) => (
+                            <span key={index} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                              <Tag className="w-3 h-3 mr-1" />{tag}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-gray-500 text-sm">Tags will appear when you select a job title</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
+
+              {/* Expense Configuration */}
+              <div className="bg-yellow-50 rounded-lg p-6 mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4"><Settings className="w-5 h-5 inline mr-2" />Configure Expense Responsibility</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="font-medium text-green-700 mb-3">Employer Pays</h4>
+                    <div className="space-y-2">
+                      {expenseItems.map((item) => (
+                        <label key={item} className="flex items-center">
+                          <input type="checkbox" checked={formData.expenseConfig.employerPays.includes(item)} onChange={() => handleExpenseToggle(item, 'employerPays')} className="rounded border-gray-300 text-green-600 focus:ring-green-500 mr-3" />
+                          <span className="text-sm text-gray-700">{item}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-red-700 mb-3">Candidate Pays</h4>
+                    <div className="space-y-2">
+                      {expenseItems.map((item) => (
+                        <label key={item} className="flex items-center">
+                          <input type="checkbox" checked={formData.expenseConfig.candidatePays.includes(item)} onChange={() => handleExpenseToggle(item, 'candidatePays')} className="rounded border-gray-300 text-red-600 focus:ring-red-500 mr-3" />
+                          <span className="text-sm text-gray-700">{item}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Phone Number with Speech */}
+              <div className="bg-blue-50 rounded-lg p-6 mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4"><Phone className="w-5 h-5 inline mr-2" />Contact Phone Number</h3>
+                <p className="text-sm text-gray-600 mb-4">Enter in chunks of 4 digits</p>
+                <div className="flex items-center space-x-2 mb-3">
+                  {formData.phoneNumberChunks.map((chunk, index) => (
+                    <input key={index} type="text" maxLength="4" className="w-16 px-2 py-2 text-center border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="0000" value={chunk} onChange={(e) => handlePhoneChunkChange(index, e.target.value.replace(/\D/g, ''))} />
+                  ))}
+                  <button onClick={speakPhoneNumber} className="px-3 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700" title="Speak phone number"><Volume2 className="w-4 h-4" /></button>
+                </div>
+              </div>
+
+              {/* Notes with Templates */}
+              <div className="bg-gray-50 rounded-lg p-6 mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Additional Notes</h3>
+                  <div className="relative dropdown-container">
+                    <button onClick={() => setShowNotesDropdown(!showNotesDropdown)} className="text-sm text-primary-600 hover:text-primary-800 flex items-center">
+                      <FileText className="w-4 h-4 mr-1" />Select from Templates
+                    </button>
+                    {showNotesDropdown && (
+                      <div className="absolute right-0 z-10 mt-1 w-80 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        {notesTemplates.map((template, index) => (
+                          <button key={index} onClick={() => handleNotesTemplateSelect(template)} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 border-b border-gray-100">{template}</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <textarea rows={4} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Enter additional notes..." value={formData.notes} onChange={(e) => handleInputChange('notes', e.target.value)} />
+              </div>
+
+              {/* Basic Information */}
+              <div className="bg-gray-50 rounded-lg p-6 mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Country *</label>
+                    <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500" value={formData.country} onChange={(e) => handleInputChange('country', e.target.value)}>
+                      <option value="">Select country</option>
+                      <option value="UAE">UAE</option>
+                      <option value="Saudi Arabia">Saudi Arabia</option>
+                      <option value="Qatar">Qatar</option>
+                      <option value="Kuwait">Kuwait</option>
+                      <option value="Oman">Oman</option>
+                      <option value="Bahrain">Bahrain</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+                    <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Enter city" value={formData.city} onChange={(e) => handleInputChange('city', e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Salary</label>
+                    <div className="flex">
+                      <input type="number" className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Amount" value={formData.salary} onChange={(e) => handleInputChange('salary', e.target.value)} />
+                      <select className="border-t border-b border-r border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-primary-500" value={formData.currency} onChange={(e) => handleInputChange('currency', e.target.value)}>
+                        <option value="AED">AED</option>
+                        <option value="SAR">SAR</option>
+                        <option value="QAR">QAR</option>
+                        <option value="KWD">KWD</option>
+                        <option value="OMR">OMR</option>
+                        <option value="BHD">BHD</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Contact Person</label>
+                    <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="HR Contact Name" value={formData.contact_person} onChange={(e) => handleInputChange('contact_person', e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Contact Email</label>
+                    <input type="email" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="hr@company.com" value={formData.contact_email} onChange={(e) => handleInputChange('contact_email', e.target.value)} />
+                  </div>
+                </div>
+                <div className="mt-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Job Description</label>
+                  <textarea rows={4} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Enter detailed job description..." value={formData.description} onChange={(e) => handleInputChange('description', e.target.value)} />
+                </div>
+              </div>
+
+              {/* Attachments Display */}
+              {formData.attachments.length > 0 && (
+                <div className="bg-green-50 rounded-lg p-6 mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Attached Files/URLs</h3>
+                  <div className="space-y-2">
+                    {formData.attachments.map((attachment, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-white rounded-md border">
+                        <div className="flex items-center">
+                          {attachment.type === 'image' ? <Image className="w-4 h-4 mr-2" /> : <Globe className="w-4 h-4 mr-2" />}
+                          <span className="text-sm font-medium">{attachment.name}</span>
+                        </div>
+                        <button onClick={() => { setFormData(prev => ({ ...prev, attachments: prev.attachments.filter((_, i) => i !== index) })) }} className="text-red-600 hover:text-red-800">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            {/* Modal Actions */}
+            <div className="flex justify-between items-center p-6 border-t border-gray-200 bg-gray-50">
+              <button 
+                onClick={() => {
+                  setShowCreateModal(false)
+                  setEditingDraft(null)
+                  resetForm()
+                }} 
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500"
               >
                 Cancel
               </button>
-              <button
-                onClick={handleCreateDraft}
-                className="px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700"
-              >
-                Create Draft
-              </button>
+              <div className="flex space-x-3">
+                <button 
+                  onClick={handleCreateDraft} 
+                  className="px-6 py-2 text-sm font-medium text-white bg-orange-600 border border-transparent rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  {editingDraft ? 'Update Draft' : 'Save as Draft'}
+                </button>
+                {!editingDraft && (
+                  <button 
+                    onClick={async () => {
+                      try {
+                        await handleCreateDraft()
+                        // Auto-publish after saving
+                        const drafts = await jobService.getDraftJobs()
+                        const latestDraft = drafts[drafts.length - 1]
+                        if (latestDraft) {
+                          await handlePublish(latestDraft.id)
+                          showToast('🚀 Draft created and published successfully! Candidates have been notified.', 'success')
+                        }
+                      } catch (error) {
+                        showToast('❌ Failed to publish draft. Please try again.', 'error')
+                      }
+                    }} 
+                    className="px-6 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    Publish and Notify
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1295,17 +1807,66 @@ const Drafts = () => {
                 Close
               </button>
               <button
-                onClick={() => {
-                  handlePublish(previewDraft.id)
-                  setShowPreviewModal(false)
-                  setPreviewDraft(null)
+                onClick={async () => {
+                  try {
+                    await handlePublish(previewDraft.id)
+                    setShowPreviewModal(false)
+                    setPreviewDraft(null)
+                    showToast('🚀 Job published successfully from preview!', 'success')
+                  } catch (error) {
+                    showToast('❌ Failed to publish job. Please try again.', 'error')
+                  }
                 }}
                 className="px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700"
-                disabled={isPublishing}
+                disabled={publishingDrafts.has(previewDraft.id)}
               >
-                {isPublishing ? 'Publishing...' : 'Publish Now'}
+                {publishingDrafts.has(previewDraft.id) ? 'Publishing...' : 'Publish Now'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Toast Notification */}
+      {showSuccessToast && (
+        <div className="fixed top-4 right-4 z-50 transform transition-all duration-300 ease-in-out animate-in slide-in-from-right-full">
+          <div className={`flex items-center p-4 rounded-lg shadow-xl border-l-4 min-w-[300px] max-w-[500px] ${
+            toastType === 'success' 
+              ? 'bg-green-50 border-green-500 text-green-800' 
+              : toastType === 'error'
+              ? 'bg-red-50 border-red-500 text-red-800'
+              : 'bg-blue-50 border-blue-500 text-blue-800'
+          }`}>
+            <div className="flex items-center">
+              {toastType === 'success' && (
+                <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center mr-3">
+                  <Check className="w-3 h-3 text-white" />
+                </div>
+              )}
+              {toastType === 'error' && (
+                <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center mr-3">
+                  <X className="w-3 h-3 text-white" />
+                </div>
+              )}
+              {toastType === 'info' && (
+                <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center mr-3">
+                  <AlertCircle className="w-3 h-3 text-white" />
+                </div>
+              )}
+              <span className="font-medium text-sm">{toastMessage}</span>
+            </div>
+            <button
+              onClick={() => setShowSuccessToast(false)}
+              className={`ml-3 p-1 rounded-full hover:bg-opacity-20 ${
+                toastType === 'success' 
+                  ? 'hover:bg-green-600' 
+                  : toastType === 'error'
+                  ? 'hover:bg-red-600'
+                  : 'hover:bg-blue-600'
+              }`}
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}
