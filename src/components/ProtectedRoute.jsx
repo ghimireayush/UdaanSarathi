@@ -1,26 +1,27 @@
 import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useUser } from '../contexts/UserContext'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 import Loading from './Loading'
 
 const ProtectedRoute = ({ children, requiredRole = null }) => {
-  const { isAuthenticated, hasRole, loading } = useUser()
+  const { isAuthenticated, hasRole, isLoading } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       // Redirect to login if not authenticated
       navigate('/login', { 
-        state: { from: location }, 
+        state: { from: location.pathname }, 
         replace: true 
       })
-    } else if (!loading && requiredRole && !hasRole(requiredRole)) {
+    } else if (!isLoading && requiredRole && !hasRole(requiredRole)) {
       // Redirect to dashboard if user doesn't have required role
       navigate('/dashboard', { replace: true })
     }
-  }, [isAuthenticated, hasRole, requiredRole, loading, navigate])
+  }, [isAuthenticated, hasRole, requiredRole, isLoading, navigate, location])
 
-  if (loading) {
+  if (isLoading) {
     return <Loading />
   }
 

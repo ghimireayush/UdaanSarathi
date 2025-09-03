@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react'
-import { Calendar, List, Clock, Users, Zap, Plus, Filter, Search } from 'lucide-react'
+import { Calendar, List, Clock, Users, Zap, Plus, Filter, Search, AlertTriangle, CheckCircle, Bot } from 'lucide-react'
 import ScheduledInterviews from '../components/ScheduledInterviews'
 import EnhancedInterviewScheduling from '../components/EnhancedInterviewScheduling'
 import InterviewCalendarView from '../components/InterviewCalendarView'
+import AISchedulingAssistant from '../components/AISchedulingAssistant'
 import { candidateService, jobService, interviewService } from '../services/index.js'
-import { format, startOfWeek, endOfWeek, startOfDay, endOfDay } from 'date-fns'
+import { format, startOfWeek, endOfWeek, startOfDay, endOfDay, addMinutes, isPast } from 'date-fns'
 
 const Interviews = () => {
-  const [activeTab, setActiveTab] = useState('scheduled') // 'scheduled', 'schedule', 'calendar'
+  const [activeTab, setActiveTab] = useState('scheduled') // 'scheduled', 'schedule', 'calendar', 'ai-assistant'
   const [viewMode, setViewMode] = useState('list') // 'list', 'calendar'
   const [timeRange, setTimeRange] = useState('week') // 'day', 'week'
   const [selectedDate, setSelectedDate] = useState(new Date())
@@ -18,6 +19,10 @@ const Interviews = () => {
   const [jobs, setJobs] = useState([])
   const [interviews, setInterviews] = useState([])
   const [isLoading, setIsLoading] = useState(true)
+  const [batchScheduleMode, setBatchScheduleMode] = useState(false)
+  const [selectedCandidatesForBatch, setSelectedCandidatesForBatch] = useState(new Set())
+  const [batchScheduleData, setBatchScheduleData] = useState([])
+  const [gracePeriod] = useState(30) // 30 minutes grace period for unattended flagging
 
   useEffect(() => {
     loadData()
@@ -104,11 +109,77 @@ const Interviews = () => {
       return format(interviewDate, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')
     })
 
+    // Check for unattended interviews (past scheduled time + grace period)
+    const unattendedInterviews = interviews.filter(interview => {
+      if (interview.status !== 'scheduled') return false
+      const interviewEnd = addMinutes(new Date(interview.scheduled_at), (interview.duration || 60) + gracePeriod)
+      return isPast(interviewEnd)
+    })
+
     return {
       scheduled: interviews.filter(i => i.status === 'scheduled').length,
       today: todayInterviews.length,
-      unattended: interviews.filter(i => i.status === 'scheduled' && new Date(i.scheduled_at) < new Date()).length
+      unattended: unattendedInterviews.length,
+      completed: interviews.filter(i => i.status === 'completed').length
     }
+  }
+
+  const handleBatchSchedule = async (scheduleData) => {
+    try {
+      setIsLoading(true)
+      const results = []
+      
+      for (const batch of scheduleData) {
+        const candidatesToSchedule = Array.from(selectedCandidatesForBatch).slice(0, batch.candidateCount)
+        
+        for (let i = 0; i < candidatesToSchedule.length; i++) {
+          const candidateId = candidatesToSchedule[i]
+          const timeSlot = new Date(`${batch.date}T${batch.startTime}:00`)
+          timeSlot.setMinutes(timeSlot.getMinutes() + (i * (batch.duration || 60)))
+          
+          const result = await interviewService.scheduleInterview({
+            candidate_id: candidateId,
+            job_id: selectedJob,
+            scheduled_at: timeSlot.toISOString(),
+            duration: batch.duration || 60,
+            interviewer: batch.interviewer || '',
+            location: batch.location || 'Office',
+            notes: `Batch scheduled - ${batch.notes || ''}`,
+            status: 'scheduled'
+          })
+          
+          results.push(result)
+        }
+      }
+      
+      // Reset batch mode and reload data
+      setBatchScheduleMode(false)
+      setSelectedCandidatesForBatch(new Set())
+      setBatchScheduleData([])
+      await loadData()
+      
+      return results
+    } catch (error) {
+      console.error('Failed to batch schedule interviews:', error)
+      throw error
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const checkForDoubleBooking = (candidateId, proposedDateTime, duration) => {
+    const proposedStart = new Date(proposedDateTime)
+    const proposedEnd = addMinutes(proposedStart, duration)
+    
+    return interviews.some(interview => {
+      if (interview.candidate_id !== candidateId || interview.status === 'cancelled') return false
+      
+      const existingStart = new Date(interview.scheduled_at)
+      const existingEnd = addMinutes(existingStart, interview.duration || 60)
+      
+      // Check for time overlap
+      return (proposedStart < existingEnd && proposedEnd > existingStart)
+    })
   }
 
   if (isLoading) {
@@ -271,6 +342,21 @@ const Interviews = () => {
               <Plus className="w-4 h-4 mr-2 inline" />
               Schedule New
             </button>
+
+            <button
+              onClick={() => setActiveTab('ai-assistant')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'ai-assistant'
+                  ? 'border-purple-500 text-purple-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Bot className="w-4 h-4 mr-2 inline" />
+              AI Assistant
+              <span className="ml-2 bg-purple-100 text-purple-600 py-0.5 px-2 rounded-full text-xs">
+                Phase 2
+              </span>
+            </button>
           </nav>
         </div>
       </div>
@@ -320,14 +406,70 @@ const Interviews = () => {
                 candidates={candidates}
                 jobId={selectedJob}
                 onScheduled={handleInterviewScheduled}
+                onBatchSchedule={handleBatchSchedule}
+                checkForDoubleBooking={checkForDoubleBooking}
               />
             )}
+          </div>
+        )}
+
+        {activeTab === 'ai-assistant' && (
+          <div className="space-y-6">
+            <div className="card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                    <Bot className="w-5 h-5 mr-2 text-purple-600" />
+                    AI Scheduling Assistant
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Intelligent scheduling suggestions for optimal interview coverage
+                  </p>
+                </div>
+                <span className="bg-purple-100 text-purple-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                  Phase 2 Feature
+                </span>
+              </div>
+              
+              {selectedJob && candidates.length > 0 ? (
+                <AISchedulingAssistant
+                  existingMeetings={interviews}
+                  participants={candidates.map(c => ({
+                    id: c.id,
+                    name: c.name,
+                    email: c.email,
+                    availability: [] // Would be populated from candidate availability data
+                  }))}
+                  onScheduleSelect={(slot) => {
+                    // Handle AI-suggested schedule selection
+                    console.log('AI suggested slot:', slot)
+                  }}
+                  constraints={{
+                    duration: 60,
+                    priority: 'high',
+                    meetingType: 'interview',
+                    dateRange: {
+                      start: new Date(),
+                      end: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) // 2 weeks
+                    }
+                  }}
+                />
+              ) : (
+                <div className="text-center py-8">
+                  <Bot className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h4 className="text-lg font-medium text-gray-900 mb-2">AI Assistant Ready</h4>
+                  <p className="text-gray-600">
+                    Select a job with shortlisted candidates to get AI-powered scheduling suggestions.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
 
       {/* Quick Stats */}
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="card p-4">
           <div className="flex items-center">
             <div className="flex-shrink-0">
@@ -355,11 +497,24 @@ const Interviews = () => {
         <div className="card p-4">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <Users className="w-8 h-8 text-red-600" />
+              <AlertTriangle className="w-8 h-8 text-red-600" />
             </div>
             <div className="ml-4">
               <div className="text-sm font-medium text-gray-500">Unattended</div>
               <div className="text-2xl font-bold text-gray-900">{tabCounts.unattended}</div>
+              <div className="text-xs text-red-600 mt-1">Auto-flagged after {gracePeriod}min grace</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="card p-4">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <CheckCircle className="w-8 h-8 text-purple-600" />
+            </div>
+            <div className="ml-4">
+              <div className="text-sm font-medium text-gray-500">Completed</div>
+              <div className="text-2xl font-bold text-gray-900">{tabCounts.completed}</div>
             </div>
           </div>
         </div>

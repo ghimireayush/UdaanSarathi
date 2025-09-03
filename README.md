@@ -37,9 +37,9 @@ The application includes a complete authentication system with:
 
 Demo credentials are available in the [sep3.md](sep3.md) file. The system includes three user roles:
 
-- **Admin** (`admin`/`admin123`): Full access to all application features
-- **Recruiter** (`recruiter`/`recruit123`): Access to job postings, applications, and interview scheduling
-- **Coordinator** (`coordinator`/`coord123`): Limited access to workflow management functions
+- **Admin** (`admin@udaan.com`/`password`): Full access to all application features including Audit Log
+- **Recruiter** (`recruiter@udaan.com`/`password`): Access to job postings, applications, and interview scheduling
+- **Coordinator** (`coordinator@udaan.com`/`password`): Limited access to workflow management functions
 
 ## 🎨 Tailwind CSS Setup
 
@@ -92,6 +92,7 @@ src/
 │   ├── InterviewScheduling.jsx
 │   ├── ScheduledInterviews.jsx
 │   ├── PrivateRoute.jsx
+│   ├── ProtectedRoute.jsx
 │   └── ui/
 │       └── Card.jsx
 ├── pages/              # Main application pages
@@ -103,12 +104,14 @@ src/
 │   ├── Workflow.jsx
 │   ├── Drafts.jsx
 │   ├── AgencySettings.jsx
+│   ├── AuditLog.jsx
 │   └── Login.jsx
 ├── services/           # API layer
 │   ├── authService.js
+│   ├── auditService.js
 │   └── index.js
 ├── contexts/           # React contexts
-│   └── UserContext.jsx
+│   └── AuthContext.jsx
 ├── hooks/              # React Query hooks
 │   └── useApi.js
 ├── data/               # Mock data
@@ -130,10 +133,24 @@ src/
 - **🔄 Workflow Management** - Post-interview pipeline
 - **📝 Draft Management** - Save and manage job drafts
 - **⚙️ Agency Settings** - Configure agency profile
+- **📋 Audit Log** - Track all system activities (Admin only)
 - **🌐 Responsive Design** - Mobile-first approach
 - **♿ Accessibility** - WCAG compliant
 - **🗓️ Nepali Calendar** - Full BS calendar integration
 - **⚡ Performance** - Optimized loading and caching
+
+## 🧭 Navigation Structure
+
+The application follows a logical navigation structure:
+
+1. **Dashboard** (Analytics) - Overview of key metrics
+2. **Jobs** - Job listing and management
+3. **Drafts** - Manage job drafts
+4. **Applications** - Track all job applications
+5. **Interviews** - Schedule and manage interviews
+6. **Workflow** - Post-interview candidate workflow
+7. **Audit Log** - System-wide audit trail (Admin only)
+8. **Agency Settings** - Configure agency profile
 
 ## 🧪 Development
 

@@ -10,6 +10,7 @@ The audit logging system provides comprehensive tracking of all changes made to 
 - File uploads (logo, banner) are tracked
 - Settings changes are recorded
 - Contact information updates are logged
+- System-wide audit log accessible to administrators
 
 ### **👤 User Attribution**
 - Every change includes user ID and name
@@ -38,6 +39,12 @@ src/services/
 src/components/
 ├── AgencySettings.jsx  # Enhanced with audit logging
 └── AuditLog.jsx       # Audit trail viewer
+```
+
+### **Pages**
+```
+src/pages/
+└── AuditLog.jsx       # System-wide audit log page (admin only)
 ```
 
 ## 📊 **Audit Data Structure**
@@ -89,6 +96,7 @@ src/components/
 - **Login/Logout**: User session tracking
 - **Settings Changes**: Configuration modifications
 - **Profile Views**: Access logging (optional)
+- **System-wide Changes**: All user actions across the application
 
 ## 🔍 **Audit Log Features**
 
@@ -132,6 +140,12 @@ await agencyService.updateBasicInfo(data, {
 - Search by field names or values
 - Resource-specific filtering
 - Pagination support
+
+### **Admin-Only Access**
+- System-wide audit log page accessible only to administrators
+- Comprehensive view of all system changes
+- Advanced filtering capabilities
+- Detailed user activity tracking
 
 ## 🛡️ **Security & Compliance**
 
@@ -185,6 +199,13 @@ const saveChanges = async (section) => {
 />
 ```
 
+### **System-wide Audit Page**
+```javascript
+// Admin-only audit log page
+// Accessible at /auditlog route
+// Protected by VIEW_AUDIT_LOGS permission
+```
+
 ## 📈 **Audit Analytics**
 
 ### **Change Patterns**
@@ -198,107 +219,3 @@ const saveChanges = async (section) => {
 - User activity summaries
 - Compliance audit trails
 - Export capabilities
-
-## 🚀 **Usage Examples**
-
-### **Basic Profile Update**
-```javascript
-// User updates agency name
-await agencyService.updateBasicInfo({
-  name: "New Agency Name"
-}, {
-  user: { id: 'user_001', name: 'John Doe' }
-})
-
-// Automatically creates audit log:
-// "John Doe updated Basic Information 2 minutes ago"
-// Changes: name (Old Agency Name → New Agency Name)
-```
-
-### **File Upload**
-```javascript
-// User uploads new logo
-await agencyService.uploadLogo(logoFile, {
-  user: currentUser
-})
-
-// Creates both update and file upload logs:
-// "John Doe uploaded logo 1 minute ago"
-// File: new_logo.png (245 KB)
-```
-
-### **Settings Change**
-```javascript
-// User changes timezone
-await agencyService.updateSettings({
-  timezone: 'Asia/Dubai'
-}, {
-  user: currentUser
-})
-
-// Audit log shows:
-// "John Doe updated Settings 30 seconds ago"
-// Changes: timezone (Asia/Kathmandu → Asia/Dubai)
-```
-
-## 🎨 **UI/UX Features**
-
-### **Visual Indicators**
-- Color-coded action types
-- Icons for different operations
-- Status badges for change types
-- Timeline visualization
-
-### **Interactive Elements**
-- Expandable change details
-- Click-to-view comparisons
-- Hover tooltips
-- Quick filters
-
-### **Responsive Design**
-- Mobile-friendly audit viewer
-- Collapsible sections
-- Touch-friendly interactions
-- Optimized loading
-
-## 🔮 **Future Enhancements**
-
-### **Advanced Features**
-- Real-time audit notifications
-- Automated compliance checks
-- Change approval workflows
-- Audit data visualization
-
-### **Integration Options**
-- External audit systems
-- SIEM integration
-- Compliance platforms
-- Backup and archival
-
-### **Performance Optimizations**
-- Audit log compression
-- Intelligent archiving
-- Search indexing
-- Caching strategies
-
-## 📋 **Best Practices**
-
-### **Implementation**
-- Always include user context
-- Use descriptive action names
-- Capture relevant metadata
-- Validate audit data
-
-### **Security**
-- Protect audit logs from tampering
-- Implement access controls
-- Regular backup procedures
-- Monitor audit system health
-
-### **Performance**
-- Asynchronous logging
-- Batch operations when possible
-- Regular cleanup procedures
-- Efficient storage strategies
-
-The audit logging system provides complete transparency and accountability for all agency settings changes, meeting compliance requirements while maintaining excellent user experience.

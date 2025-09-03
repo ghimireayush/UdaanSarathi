@@ -18,10 +18,12 @@ import {
 import { jobService, constantsService, PERMISSIONS } from '../services/index.js'
 import { format, formatDistanceToNow } from 'date-fns'
 import PermissionGuard, { PermissionButton, usePermissions } from '../components/PermissionGuard.jsx'
+import useErrorHandler from '../hooks/useErrorHandler.js'
 
 
 const Jobs = () => {
   const navigate = useNavigate()
+  const { error, isRetryable, handleError, clearError } = useErrorHandler()
   const [filters, setFilters] = useState({
     search: '',
     country: 'All Countries',
@@ -33,7 +35,6 @@ const Jobs = () => {
 
   const [jobStatuses, setJobStatuses] = useState({})
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState(null)
   const [countryDistribution, setCountryDistribution] = useState({})
 
   // Fetch jobs data using service
@@ -41,7 +42,7 @@ const Jobs = () => {
     const fetchJobsData = async () => {
       try {
         setIsLoading(true)
-        setError(null)
+        clearError()
         
         const [jobsData, statusesData, statsData] = await Promise.all([
           jobService.getJobs(filters),
@@ -53,8 +54,7 @@ const Jobs = () => {
         setJobStatuses(statusesData)
         setCountryDistribution(statsData.byCountry || {})
       } catch (err) {
-        console.error('Failed to fetch jobs data:', err)
-        setError(err)
+        handleError(err, 'fetch jobs data');
       } finally {
         setIsLoading(false)
       }
@@ -118,12 +118,46 @@ const Jobs = () => {
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Failed to load jobs</h2>
           <p className="text-gray-600 mb-4">{error.message}</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="btn-primary"
-          >
-            Retry
-          </button>
+          <div className="flex flex-col sm:flex-row justify-center gap-3">
+            <button 
+              onClick={() => window.location.reload()} 
+              className="btn-primary"
+            >
+              Reload Page
+            </button>
+            {isRetryable && (
+              <button 
+                onClick={() => {
+                  clearError();
+                  // Re-fetch data
+                  const fetchJobsData = async () => {
+                    try {
+                      setIsLoading(true)
+                      const [jobsData, statusesData, statsData] = await Promise.all([
+                        jobService.getJobs(filters),
+                        constantsService.getJobStatuses(),
+                        jobService.getJobStatistics()
+                      ])
+                      
+                      setJobs(jobsData)
+                      setJobStatuses(statusesData)
+                      setCountryDistribution(statsData.byCountry || {})
+                      clearError()
+                    } catch (err) {
+                      handleError(err, 'retry fetch jobs data');
+                    } finally {
+                      setIsLoading(false)
+                    }
+                  }
+                  
+                  fetchJobsData()
+                }}
+                className="btn-secondary"
+              >
+                Retry
+              </button>
+            )}
+          </div>
         </div>
       </div>
     )

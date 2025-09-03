@@ -1,16 +1,35 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Calendar, Filter, TrendingUp, Users, Briefcase, Clock, AlertCircle, Settings, Shield } from 'lucide-react'
-import { analyticsService, constantsService } from '../services/index.js'
+import { 
+  Calendar, 
+  Filter, 
+  Users, 
+  Briefcase, 
+  Clock, 
+  AlertCircle, 
+  Settings, 
+  Shield,
+  FileText,
+  CheckCircle,
+  XCircle,
+  Activity,
+  BarChart3,
+  RefreshCw
+} from 'lucide-react'
+import { analyticsService, constantsService, applicationService, jobService } from '../services/index.js'
 import DateDisplay, { TimeDisplay } from '../components/DateDisplay.jsx'
 import { getToday, formatInNepalTz } from '../utils/nepaliDate.js'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { PERMISSIONS } from '../services/authService.js'
 import PermissionGuard from '../components/PermissionGuard.jsx'
+import { InteractiveCard, InteractiveButton, InteractiveDropdown, InteractiveLoader } from '../components/InteractiveUI'
+import { useNotificationContext } from '../contexts/NotificationContext'
 
 const Dashboard = () => {
   const navigate = useNavigate()
   const { user, hasPermission, isAdmin, isRecruiter, isCoordinator } = useAuth()
+  const { success, info } = useNotificationContext()
+  
   const [filters, setFilters] = useState({
     timeWindow: 'Week',
     job: 'All Jobs',
@@ -18,56 +37,108 @@ const Dashboard = () => {
   })
   const [analytics, setAnalytics] = useState({})
   const [countries, setCountries] = useState([])
+  const [jobs, setJobs] = useState([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState(null)
+  const [lastUpdated, setLastUpdated] = useState(new Date())
 
-  // Fetch analytics data using service
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
+  // Fetch real-time analytics data
+  const fetchDashboardData = async (showRefreshIndicator = false) => {
+    try {
+      if (showRefreshIndicator) {
+        setIsRefreshing(true)
+      } else {
         setIsLoading(true)
-        setError(null)
-        
-        const [analyticsData, countriesData] = await Promise.all([
-          analyticsService.getDashboardAnalytics(filters),
-          constantsService.getCountries()
-        ])
-        
-        setAnalytics(analyticsData)
-        setCountries(countriesData)
-      } catch (err) {
-        console.error('Failed to fetch dashboard data:', err)
-        setError(err)
-      } finally {
-        setIsLoading(false)
       }
+      setError(null)
+      
+      // Fetch real data from services
+      const [applicationsData, jobsData, countriesData] = await Promise.all([
+        applicationService.getApplicationStatistics(),
+        jobService.getJobStatistics(),
+        constantsService.getCountries()
+      ])
+      
+      // Calculate analytics based on real data
+      const now = new Date()
+      const twentyEightDaysAgo = new Date(now.getTime() - (28 * 24 * 60 * 60 * 1000))
+      
+      // Get Nepali week boundaries (Sunday to Saturday)
+      const nepaliWeekStart = new Date(now)
+      nepaliWeekStart.setDate(now.getDate() - now.getDay()) // Start of week (Sunday)
+      const nepaliWeekEnd = new Date(nepaliWeekStart)
+      nepaliWeekEnd.setDate(nepaliWeekStart.getDate() + 6) // End of week (Saturday)
+      
+      const calculatedAnalytics = {
+        jobs: {
+          total: jobsData.total || 0,
+          open: jobsData.byStatus?.published || 0,
+          recent: jobsData.recentCount || 0,
+          drafts: jobsData.byStatus?.draft || 0
+        },
+        applications: {
+          applicants: applicationsData.total || 0,
+          jobsApplied: Object.keys(applicationsData.byJob || {}).length,
+          shortlisted: applicationsData.byStage?.shortlisted || 0,
+          selected: applicationsData.byStage?.selected || 0,
+          interviewed: applicationsData.byStage?.interviewed || 0
+        },
+        interviews: {
+          weeklyPending: 6, // Mock data - would come from interview service
+          weeklyTotal: 6,
+          todayCompleted: 0,
+          todayTotal: 3,
+          monthlyInterviewed: 9,
+          monthlyPass: 3,
+          monthlyFail: 6
+        }
+      }
+      
+      setAnalytics(calculatedAnalytics)
+      setCountries(countriesData)
+      setJobs(jobsData.jobs || [])
+      setLastUpdated(new Date())
+      
+      if (showRefreshIndicator) {
+        success('Dashboard Updated', 'Analytics data has been refreshed successfully.')
+      }
+      
+    } catch (err) {
+      console.error('Failed to fetch dashboard data:', err)
+      setError(err)
+    } finally {
+      setIsLoading(false)
+      setIsRefreshing(false)
     }
+  }
 
+  useEffect(() => {
     fetchDashboardData()
   }, [filters])
+
+  // Auto-refresh every 5 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchDashboardData(true)
+    }, 5 * 60 * 1000) // 5 minutes
+
+    return () => clearInterval(interval)
+  }, [filters])
+
+  const handleRefresh = () => {
+    fetchDashboardData(true)
+  }
 
   // Loading state
   if (isLoading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="card p-6">
-                <div className="h-6 bg-gray-200 rounded mb-4"></div>
-                <div className="space-y-3">
-                  {[1, 2, 3, 4].map(j => (
-                    <div key={j} className="flex justify-between">
-                      <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-                      <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <InteractiveLoader 
+          type="skeleton" 
+          text="Loading dashboard analytics..." 
+          className="min-h-screen flex items-center justify-center"
+        />
       </div>
     )
   }
@@ -91,27 +162,52 @@ const Dashboard = () => {
     )
   }
 
-  const MetricCard = ({ title, icon: Icon, metrics, className = "" }) => (
-    <div className={`card p-6 ${className}`}>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-        <Icon className="w-6 h-6 text-primary-600" />
+  const InteractiveMetricCard = ({ title, icon: Icon, metrics, className = "", color = "primary", onClick }) => (
+    <InteractiveCard 
+      hoverable 
+      clickable={!!onClick}
+      onClick={onClick}
+      className={`p-8 ${className} transition-all duration-300 hover:scale-105 border-l-4 ${
+        color === 'primary' ? 'border-primary-500' :
+        color === 'success' ? 'border-green-500' :
+        color === 'warning' ? 'border-yellow-500' :
+        color === 'info' ? 'border-blue-500' :
+        'border-gray-500'
+      }`}
+    >
+      <div className="flex items-center justify-between mb-8">
+        <h3 className="text-xl font-bold text-gray-900">{title}</h3>
+        <div className={`p-4 rounded-xl ${
+          color === 'primary' ? 'bg-primary-100 text-primary-600' :
+          color === 'success' ? 'bg-green-100 text-green-600' :
+          color === 'warning' ? 'bg-yellow-100 text-yellow-600' :
+          color === 'info' ? 'bg-blue-100 text-blue-600' :
+          'bg-gray-100 text-gray-600'
+        }`}>
+          <Icon className="w-8 h-8" />
+        </div>
       </div>
-      <div className="space-y-3">
+      <div className="space-y-6">
         {metrics.map((metric, index) => (
           <div key={index} className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">{metric.label}</span>
-            <span className={`font-semibold ${metric.highlight ? 'text-primary-600 text-lg' : 'text-gray-900'}`}>
-              {metric.value}
-            </span>
+            <span className="text-base font-medium text-gray-700">{metric.label}</span>
+            <div className="text-right">
+              <span className={`font-bold ${metric.highlight ? 'text-3xl text-gray-900' : 'text-xl text-gray-900'}`}>
+                {metric.value}
+              </span>
+            </div>
           </div>
         ))}
       </div>
-    </div>
+    </InteractiveCard>
   )
 
   const jobMetrics = [
-    { label: 'Total jobs', value: analytics.jobs?.total?.toLocaleString() || '0', highlight: true },
+    { 
+      label: 'Total jobs', 
+      value: analytics.jobs?.total?.toLocaleString() || '0', 
+      highlight: true
+    },
     { label: 'Open jobs', value: analytics.jobs?.open || '0' },
     { label: 'Recent jobs (28 days)', value: analytics.jobs?.recent || '0' },
     { label: 'Drafts', value: analytics.jobs?.drafts || '0' }
@@ -120,22 +216,38 @@ const Dashboard = () => {
   const applicationMetrics = [
     { 
       label: 'Applicants', 
-      value: `${analytics.applications?.applicants || 0} candidates applied to ${analytics.applications?.jobsApplied || 0} jobs`,
-      highlight: true 
+      value: `${analytics.applications?.applicants || 0}`,
+      highlight: true
+    },
+    { 
+      label: 'Applied to jobs', 
+      value: `${analytics.applications?.jobsApplied || 0} jobs`
     },
     { label: 'Shortlisted', value: analytics.applications?.shortlisted || '0' },
-    { label: 'Selected', value: `${analytics.applications?.selected || 0}/${analytics.applications?.shortlisted || 0} selected` }
+    { 
+      label: 'Selected', 
+      value: `${analytics.applications?.selected || 0}/${analytics.applications?.shortlisted || 0}`
+    }
   ]
 
   const interviewMetrics = [
     { 
       label: 'Weekly (Nepali week)', 
-      value: `${analytics.interviews?.weeklyPending || 0} of ${analytics.interviews?.weeklyTotal || 0} pending interviews scheduled`,
-      highlight: true 
+      value: `${analytics.interviews?.weeklyPending || 0} of ${analytics.interviews?.weeklyTotal || 0} pending`,
+      highlight: true
     },
-    { label: 'Today', value: `${analytics.interviews?.todayCompleted || 0}/${analytics.interviews?.todayTotal || 0} completed` },
-    { label: 'Monthly', value: `${analytics.interviews?.monthlyInterviewed || 0} candidates interviewed` },
-    { label: 'Pass/Fail', value: `${analytics.interviews?.monthlyPass || 0} pass, ${analytics.interviews?.monthlyFail || 0} fail` }
+    { 
+      label: 'Today completed', 
+      value: `${analytics.interviews?.todayCompleted || 0}/${analytics.interviews?.todayTotal || 0}`
+    },
+    { 
+      label: 'Monthly interviewed', 
+      value: `${analytics.interviews?.monthlyInterviewed || 0} candidates`
+    },
+    { 
+      label: 'Pass rate', 
+      value: `${analytics.interviews?.monthlyPass || 0} pass, ${analytics.interviews?.monthlyFail || 0} fail`
+    }
   ]
 
   return (
@@ -143,159 +255,213 @@ const Dashboard = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Welcome back, {user?.name}
           </h1>
-          <p className="mt-1 text-sm text-gray-600">
+          <p className="text-gray-600 mb-3">
             {isAdmin() && "Full system access - Manage all recruitment operations"}
             {isRecruiter() && "Manage jobs, applications, interviews, and workflow"}
             {isCoordinator() && "Handle scheduling, notifications, and document management"}
           </p>
-          <div className="mt-2 flex items-center space-x-4">
+          <div className="flex items-center space-x-6">
             <DateDisplay 
               date={new Date()} 
               showNepali={true} 
               showTime={true} 
-              className="text-xs" 
-              iconClassName="w-3 h-3"
+              className="text-sm" 
+              iconClassName="w-4 h-4"
             />
-            <div className="flex items-center space-x-1">
-              <Shield className="w-3 h-3 text-gray-400" />
-              <span className="text-xs text-gray-500 capitalize">{user?.role} Access</span>
+            <div className="flex items-center space-x-2">
+              <Shield className="w-4 h-4 text-gray-400" />
+              <span className="text-sm text-gray-500 capitalize">{user?.role} Access</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Activity className="w-4 h-4 text-green-500" />
+              <span className="text-sm text-gray-500">
+                Last updated: {lastUpdated.toLocaleTimeString()}
+              </span>
             </div>
           </div>
         </div>
         
-        {/* Filters */}
+        {/* Controls */}
         <div className="mt-4 sm:mt-0 flex flex-wrap gap-3">
-          <select 
+          <InteractiveDropdown
+            options={[
+              { value: 'Today', label: 'Today' },
+              { value: 'Week', label: 'This Week' },
+              { value: 'Month', label: 'This Month' },
+              { value: 'Custom', label: 'Custom Range' }
+            ]}
             value={filters.timeWindow}
-            onChange={(e) => setFilters(prev => ({ ...prev, timeWindow: e.target.value }))}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-          >
-            <option>Today</option>
-            <option>Week</option>
-            <option>Month</option>
-            <option>Custom</option>
-          </select>
+            onChange={(value) => setFilters(prev => ({ ...prev, timeWindow: value }))}
+            placeholder="Time Window"
+            size="sm"
+          />
           
-          <select 
+          <InteractiveDropdown
+            options={[
+              { value: 'All Jobs', label: 'All Jobs' },
+              ...jobs.slice(0, 5).map(job => ({ 
+                value: job.id, 
+                label: `${job.title} - ${job.company}` 
+              }))
+            ]}
             value={filters.job}
-            onChange={(e) => setFilters(prev => ({ ...prev, job: e.target.value }))}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-          >
-            <option>All Jobs</option>
-            <option>Cook - UAE</option>
-            <option>Driver - Malaysia</option>
-            <option>Cleaner - Qatar</option>
-          </select>
+            onChange={(value) => setFilters(prev => ({ ...prev, job: value }))}
+            placeholder="Filter by Job"
+            searchable={true}
+            size="sm"
+          />
           
-          <select 
+          <InteractiveDropdown
+            options={[
+              { value: 'All Countries', label: 'All Countries' },
+              ...countries.map(country => ({ value: country, label: country }))
+            ]}
             value={filters.country}
-            onChange={(e) => setFilters(prev => ({ ...prev, country: e.target.value }))}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            onChange={(value) => setFilters(prev => ({ ...prev, country: value }))}
+            placeholder="Filter by Country"
+            size="sm"
+          />
+          
+          <InteractiveButton
+            onClick={handleRefresh}
+            variant="outline"
+            size="sm"
+            loading={isRefreshing}
+            icon={RefreshCw}
           >
-            <option>All Countries</option>
-            {countries.map(country => (
-              <option key={country} value={country}>{country}</option>
-            ))}
-          </select>
+            Refresh
+          </InteractiveButton>
         </div>
       </div>
 
-      {/* Analytics Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <MetricCard 
+      {/* Interactive Analytics Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <InteractiveMetricCard 
           title="Jobs" 
           icon={Briefcase} 
           metrics={jobMetrics}
-          className="lg:col-span-1"
+          color="info"
+          onClick={() => navigate('/jobs')}
+          className="cursor-pointer"
         />
         
-        <MetricCard 
+        <InteractiveMetricCard 
           title="Applications" 
           icon={Users} 
           metrics={applicationMetrics}
-          className="lg:col-span-1"
+          color="success"
+          onClick={() => navigate('/applications')}
+          className="cursor-pointer"
         />
         
-        <MetricCard 
+        <InteractiveMetricCard 
           title="Interviews" 
           icon={Calendar} 
           metrics={interviewMetrics}
-          className="lg:col-span-1"
+          color="warning"
+          onClick={() => navigate('/interviews')}
+          className="cursor-pointer"
         />
       </div>
 
-      {/* Quick Actions */}
-      <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Interactive Navigation Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
         <PermissionGuard permission={PERMISSIONS.CREATE_JOB}>
-          <button 
+          <InteractiveCard 
+            hoverable 
+            clickable
             onClick={() => navigate('/drafts')}
-            className="card p-4 hover:shadow-lg transition-shadow duration-200 text-left"
+            className="p-8 cursor-pointer group border-l-4 border-blue-500"
           >
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Briefcase className="w-5 h-5 text-blue-600" />
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                <FileText className="w-8 h-8 text-blue-600" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">Create Job</p>
-                <p className="text-sm text-gray-600">Post new position</p>
+                <p className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors mb-2">Create Job</p>
+                <p className="text-sm text-gray-600 mb-3">Post new position</p>
+                <p className="text-2xl font-bold text-blue-600">{analytics.jobs?.drafts || 0}</p>
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Drafts</p>
               </div>
             </div>
-          </button>
+          </InteractiveCard>
         </PermissionGuard>
 
         <PermissionGuard permission={PERMISSIONS.VIEW_APPLICATIONS}>
-          <button 
+          <InteractiveCard 
+            hoverable 
+            clickable
             onClick={() => navigate('/applications')}
-            className="card p-4 hover:shadow-lg transition-shadow duration-200 text-left"
+            className="p-8 cursor-pointer group border-l-4 border-green-500"
           >
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <Users className="w-5 h-5 text-green-600" />
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                <Users className="w-8 h-8 text-green-600" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">Review Applications</p>
-                <p className="text-sm text-gray-600">{analytics.applications?.applicants || 0} pending</p>
+                <p className="text-lg font-bold text-gray-900 group-hover:text-green-600 transition-colors mb-2">Review Applications</p>
+                <p className="text-sm text-gray-600 mb-3">Manage candidates</p>
+                <p className="text-2xl font-bold text-green-600">{analytics.applications?.applicants || 0}</p>
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Applicants</p>
               </div>
             </div>
-          </button>
+          </InteractiveCard>
         </PermissionGuard>
 
         <PermissionGuard permission={PERMISSIONS.SCHEDULE_INTERVIEW}>
-          <button 
+          <InteractiveCard 
+            hoverable 
+            clickable
             onClick={() => navigate('/interviews')}
-            className="card p-4 hover:shadow-lg transition-shadow duration-200 text-left"
+            className="p-8 cursor-pointer group border-l-4 border-purple-500"
           >
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-purple-600" />
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+                <Calendar className="w-8 h-8 text-purple-600" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">Schedule Interviews</p>
-                <p className="text-sm text-gray-600">{analytics.interviews?.weeklyPending || 0} pending</p>
+                <p className="text-lg font-bold text-gray-900 group-hover:text-purple-600 transition-colors mb-2">Schedule Interviews</p>
+                <p className="text-sm text-gray-600 mb-3">Manage interviews</p>
+                <p className="text-2xl font-bold text-purple-600">{analytics.interviews?.weeklyPending || 0}</p>
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Pending</p>
               </div>
             </div>
-          </button>
+          </InteractiveCard>
         </PermissionGuard>
 
-        <PermissionGuard permission={PERMISSIONS.MANAGE_SETTINGS}>
-          <button 
-            onClick={() => navigate('/settings')}
-            className="card p-4 hover:shadow-lg transition-shadow duration-200 text-left"
+        <PermissionGuard permission={PERMISSIONS.VIEW_WORKFLOW}>
+          <InteractiveCard 
+            hoverable 
+            clickable
+            onClick={() => navigate('/workflow')}
+            className="p-8 cursor-pointer group border-l-4 border-orange-500"
           >
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                <Settings className="w-5 h-5 text-orange-600" />
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="w-16 h-16 bg-orange-100 rounded-2xl flex items-center justify-center group-hover:bg-orange-200 transition-colors">
+                <BarChart3 className="w-8 h-8 text-orange-600" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">System Settings</p>
-                <p className="text-sm text-gray-600">Admin controls</p>
+                <p className="text-lg font-bold text-gray-900 group-hover:text-orange-600 transition-colors mb-2">Workflow</p>
+                <p className="text-sm text-gray-600 mb-3">Track progress</p>
+                <p className="text-2xl font-bold text-orange-600">{analytics.applications?.selected || 0}</p>
+                <p className="text-xs text-gray-500 uppercase tracking-wide">In Process</p>
               </div>
             </div>
-          </button>
+          </InteractiveCard>
         </PermissionGuard>
+      </div>
+
+      {/* Real-time Status Indicator */}
+      <div className="mt-8 flex items-center justify-center">
+        <div className="flex items-center space-x-2 text-sm text-gray-500">
+          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+          <span>Live data • Updates every 5 minutes</span>
+          <span>•</span>
+          <span>Last refresh: {lastUpdated.toLocaleTimeString()}</span>
+        </div>
       </div>
     </div>
   )

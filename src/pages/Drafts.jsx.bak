@@ -1,0 +1,3019 @@
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import { 
+  Plus, 
+  Search, 
+  Grid3X3, 
+  List, 
+  Copy, 
+  Check, 
+  Trash2, 
+  MapPin, 
+  DollarSign, 
+  Calendar, 
+  Eye, 
+  Edit, 
+  X, 
+  FileText,
+  AlertCircle,
+  Clock,
+  User,
+  Phone,
+  Mail,
+  Upload,
+  Link,
+  Volume2,
+  Tag,
+  Settings,
+  Image,
+  Globe,
+  ChevronLeft,
+  ChevronRight
+} from 'lucide-react'
+import { format } from 'date-fns'
+import { jobService } from '../services/index.js'
+import DraftListManagement from '../components/DraftListManagement'
+import { InteractiveFilter, InteractiveButton, InteractiveCard, InteractivePagination, PaginationInfo } from '../components/InteractiveUI'
+
+const Drafts = () => {
+  const [viewMode, setViewMode] = useState('grid')
+  const [filters, setFilters] = useState({
+    search: '',
+    country: '',
+    company: '',
+    category: ''
+  })
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 12, // 12 items per page for grid view
+    total: 0,
+    totalPages: 0
+  })
+  const [selectedDrafts, setSelectedDrafts] = useState(new Set())
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showBulkCreateModal, setShowBulkCreateModal] = useState(false)
+  const [drafts, setDrafts] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [isPublishing, setIsPublishing] = useState(false)
+  const [draftMode, setDraftMode] = useState('manual') // 'manual', 'newspaper'
+  const [formData, setFormData] = useState({
+    title: '',
+    company: '',
+    companyAddress: '',
+    country: '',
+    city: '',
+    salary: '',
+    currency: 'AED',
+    description: '',
+    requirements: '',
+    tags: [],
+    employment_type: 'Full-time',
+    working_hours: '8 hours/day',
+    accommodation: 'Provided',
+    food: 'Provided',
+    visa_status: 'Company will provide',
+    contract_duration: '2 years',
+    contact_person: '',
+    contact_phone: '',
+    contact_email: '',
+    expenses: [],
+    notes: '',
+    ocrText: '',
+    imageUrl: '',
+    newspaperUrl: '',
+    phoneNumberChunks: ['', '', '', ''],
+    jobTitleTag: '',
+    expenseConfig: {
+      employerPays: [],
+      candidatePays: []
+    },
+    attachments: []
+  })
+  const [companies, setCompanies] = useState([
+    { name: 'Al Manara Restaurant', address: 'Sheikh Zayed Road, Dubai, UAE', city: 'Dubai', country: 'UAE' },
+    { name: 'Emirates Logistics', address: 'Corniche Road, Abu Dhabi, UAE', city: 'Abu Dhabi', country: 'UAE' },
+    { name: 'Clean Pro Services', address: 'West Bay, Doha, Qatar', city: 'Doha', country: 'Qatar' },
+    { name: 'SecureMax', address: 'King Fahd Road, Riyadh, Saudi Arabia', city: 'Riyadh', country: 'Saudi Arabia' },
+    { name: 'Royal Hotel', address: 'Al Qasba, Sharjah, UAE', city: 'Sharjah', country: 'UAE' },
+    { name: 'BuildTech UAE', address: 'Business Bay, Dubai, UAE', city: 'Dubai', country: 'UAE' }
+  ])
+  const [jobTitleDictionary, setJobTitleDictionary] = useState([
+    { title: 'Cook', tags: ['cooking', 'kitchen', 'food preparation', 'culinary'] },
+    { title: 'Driver', tags: ['driving', 'transportation', 'vehicle', 'logistics'] },
+    { title: 'Cleaner', tags: ['cleaning', 'housekeeping', 'maintenance', 'sanitation'] },
+    { title: 'Security Guard', tags: ['security', 'surveillance', 'protection', 'safety'] },
+    { title: 'Waiter', tags: ['service', 'hospitality', 'restaurant', 'customer service'] },
+    { title: 'Construction Worker', tags: ['construction', 'building', 'manual labor', 'site work'] },
+    { title: 'Electrician', tags: ['electrical', 'wiring', 'maintenance', 'technical'] },
+    { title: 'Plumber', tags: ['plumbing', 'pipes', 'water systems', 'maintenance'] },
+    { title: 'Welder', tags: ['welding', 'metalwork', 'fabrication', 'technical'] },
+    { title: 'Mechanic', tags: ['automotive', 'repair', 'maintenance', 'technical'] }
+  ])
+  const [notesTemplates, setNotesTemplates] = useState([
+    'Candidate must have valid passport and be ready to travel',
+    'Previous experience in Gulf countries preferred',
+    'Basic English communication required',
+    'Medical fitness certificate required',
+    'Police clearance certificate needed',
+    'Accommodation and food provided by employer',
+    'Two-year renewable contract',
+    'Overtime compensation as per labor law'
+  ])
+  const [expenseCategories, setExpenseCategories] = useState([
+    'Visa processing fee',
+    'Medical examination',
+    'Flight tickets',
+    'Insurance',
+    'Document attestation',
+    'Training costs',
+    'Uniform/Equipment',
+    'Accommodation deposit'
+  ])
+  const [showJobTitleDropdown, setShowJobTitleDropdown] = useState(false)
+  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false)
+  const [bulkCreateCountries, setBulkCreateCountries] = useState([{ country: 'UAE', jobCount: 3 }])
+  const [bulkCreateJobType, setBulkCreateJobType] = useState('Cook')
+
+  const handleBulkCreate = async () => {
+    try {
+      const bulkDrafts = []
+      
+      for (const countryData of bulkCreateCountries) {
+        for (let i = 0; i < countryData.jobCount; i++) {
+          const newDraft = {
+            title: bulkCreateJobType,
+            company: `Company ${i + 1}`,
+            country: countryData.country,
+            city: '',
+            published_at: null,
+            salary: '',
+            currency: 'AED',
+            salary_amount: 0,
+            requirements: [],
+            description: `${bulkCreateJobType} position in ${countryData.country}`,
+            tags: jobTitleDictionary.find(job => job.title === bulkCreateJobType)?.tags || [],
+            category: bulkCreateJobType,
+            employment_type: 'Full-time',
+            working_hours: '8 hours/day',
+            accommodation: 'Provided',
+            food: 'Provided',
+            visa_status: 'Company will provide',
+            contract_duration: '2 years',
+            contact_person: '',
+            contact_phone: '',
+            contact_email: '',
+            expenses: [],
+            notes: `Bulk created draft for ${countryData.country}`,
+            created_at: new Date().toISOString()
+          }
+          bulkDrafts.push(newDraft)
+        }
+      }
+
+      // Create all drafts
+      for (const draft of bulkDrafts) {
+        await jobService.createDraftJob(draft)
+      }
+      
+      // Refresh drafts data
+      const updatedDrafts = await jobService.getDraftJobs()
+      setDrafts(updatedDrafts)
+      setShowBulkCreateModal(false)
+      
+      // Reset bulk create form
+      setBulkCreateCountries([{ country: 'UAE', jobCount: 3 }])
+      setBulkCreateJobType('Cook')
+    } catch (error) {
+      console.error('Failed to create bulk drafts:', error)
+    }
+  }
+
+  const addBulkCountry = () => {
+    setBulkCreateCountries(prev => [...prev, { country: 'UAE', jobCount: 1 }])
+  }
+
+  const updateBulkCountry = (index, field, value) => {
+    setBulkCreateCountries(prev => {
+      const updated = [...prev]
+      updated[index][field] = value
+      return updated
+    })
+  }
+
+  const removeBulkCountry = (index) => {
+    setBulkCreateCountries(prev => prev.filter((_, i) => i !== index))
+  }
+  const [showPreviewModal, setShowPreviewModal] = useState(false)
+  const [previewDraft, setPreviewDraft] = useState(null)
+  
+  // Mock mutation object for publish functionality
+  const publishMutation = {
+    isLoading: isPublishing
+  }
+
+  // Debounced search to reduce API calls
+  const debouncedSearch = useMemo(
+    () => {
+      const debounce = (func, delay) => {
+        let timeoutId
+        return (...args) => {
+          clearTimeout(timeoutId)
+          timeoutId = setTimeout(() => func.apply(null, args), delay)
+        }
+      }
+      return debounce((searchTerm) => {
+        setFilters(prev => ({ ...prev, search: searchTerm }))
+        setPagination(prev => ({ ...prev, page: 1 }))
+      }, 300)
+    },
+    []
+  )
+
+  const handleFilterChange = useCallback((key, value) => {
+    if (key === 'search') {
+      debouncedSearch(value)
+    } else {
+      setFilters(prev => ({ ...prev, [key]: value }))
+      setPagination(prev => ({ ...prev, page: 1 })) // Reset to first page
+    }
+  }, [debouncedSearch])
+
+  const handlePageChange = useCallback((newPage) => {
+    setPagination(prev => ({ ...prev, page: newPage }))
+    // Scroll to top for better UX
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [])
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
+
+  const handlePhoneNumberChange = (index, value) => {
+    const newChunks = [...formData.phoneNumberChunks]
+    newChunks[index] = value
+    setFormData(prev => ({
+      ...prev,
+      phoneNumberChunks: newChunks
+    }))
+  }
+
+  const handleCompanySelect = (company) => {
+    setFormData(prev => ({
+      ...prev,
+      company: company.name,
+      companyAddress: company.address,
+      city: company.city,
+      country: company.country
+    }))
+    setShowCompanyDropdown(false)
+  }
+
+  const handleJobTitleSelect = (jobTitle) => {
+    setFormData(prev => ({
+      ...prev,
+      title: jobTitle.title,
+      jobTitleTag: jobTitle.title,
+      tags: [...prev.tags, ...jobTitle.tags.filter(tag => !prev.tags.includes(tag))]
+    }))
+    setShowJobTitleDropdown(false)
+  }
+
+  const handleExpenseConfigChange = (category, payer, checked) => {
+    setFormData(prev => ({
+      ...prev,
+      expenseConfig: {
+        ...prev.expenseConfig,
+        [payer]: checked 
+          ? [...prev.expenseConfig[payer], category]
+          : prev.expenseConfig[payer].filter(item => item !== category)
+      }
+    }))
+  }
+
+  const handleImageUpload = (event) => {
+    const file = event.target.files[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setFormData(prev => ({
+          ...prev,
+          imageUrl: e.target.result,
+          attachments: [...prev.attachments, { type: 'image', url: e.target.result, name: file.name }]
+        }))
+        // Simulate OCR extraction
+        simulateOCRExtraction()
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleUrlInput = (url) => {
+    setFormData(prev => ({
+      ...prev,
+      newspaperUrl: url,
+      attachments: [...prev.attachments, { type: 'url', url: url, name: 'Newspaper URL' }]
+    }))
+    // Simulate OCR extraction from URL
+    simulateOCRExtraction()
+  }
+
+  const speakPhoneNumber = () => {
+    const fullNumber = formData.phoneNumberChunks.join('')
+    if (fullNumber && 'speechSynthesis' in window) {
+      const chunks = [
+        formData.phoneNumberChunks[0],
+        formData.phoneNumberChunks[1], 
+        formData.phoneNumberChunks[2],
+        formData.phoneNumberChunks[3]
+      ].filter(chunk => chunk)
+      
+      const utterance = new SpeechSynthesisUtterance(chunks.join(' '))
+      utterance.rate = 0.7
+      speechSynthesis.speak(utterance)
+    }
+  }
+
+  const addNotesFromTemplate = (template) => {
+    setFormData(prev => ({
+      ...prev,
+      notes: prev.notes ? `${prev.notes}\n${template}` : template
+    }))
+  }
+
+  const addExpense = () => {
+    const newExpense = {
+      description: '',
+      amount: '',
+      currency: 'AED'
+    }
+    setFormData(prev => ({
+      ...prev,
+      expenses: [...prev.expenses, newExpense]
+    }))
+  }
+
+  const updateExpense = (index, field, value) => {
+    const updatedExpenses = [...formData.expenses]
+    updatedExpenses[index][field] = value
+    setFormData(prev => ({
+      ...prev,
+      expenses: updatedExpenses
+    }))
+  }
+
+  const removeExpense = (index) => {
+    const updatedExpenses = [...formData.expenses]
+    updatedExpenses.splice(index, 1)
+    setFormData(prev => ({
+      ...prev,
+      expenses: updatedExpenses
+    }))
+  }
+
+  const addTag = (tag) => {
+    if (tag && !formData.tags.includes(tag)) {
+      setFormData(prev => ({
+        ...prev,
+        tags: [...prev.tags, tag]
+      }))
+    }
+  }
+
+  const removeTag = (tagToRemove) => {
+    setFormData(prev => ({
+      ...prev,
+      tags: prev.tags.filter(tag => tag !== tagToRemove)
+    }))
+  }
+
+  const simulateOCRExtraction = () => {
+    // Simulate OCR extraction with sample data
+    const sampleOCRText = `Job Title: Cook
+Company: Al Manara Restaurant
+Location: Sheikh Zayed Road, Dubai, UAE
+Salary: 2500 AED
+Contact: John Smith, 0501234567, john@almanara.com
+Requirements:
+- 2 years experience in Gulf countries
+- Arabic speaking preferred
+- Valid food handling certificate
+- Medical fitness certificate required`;
+    
+    setFormData(prev => ({
+      ...prev,
+      ocrText: sampleOCRText,
+      title: 'Cook',
+      company: 'Al Manara Restaurant',
+      companyAddress: 'Sheikh Zayed Road, Dubai, UAE',
+      city: 'Dubai',
+      country: 'UAE',
+      salary: '2500',
+      currency: 'AED',
+      contact_person: 'John Smith',
+      contact_phone: '0501234567',
+      contact_email: 'john@almanara.com',
+      requirements: '2 years experience in Gulf countries\nArabic speaking preferred\nValid food handling certificate\nMedical fitness certificate required',
+      phoneNumberChunks: ['0501', '2345', '67', ''],
+      tags: ['cooking', 'kitchen', 'food preparation', 'culinary'],
+      jobTitleTag: 'Cook'
+    }));
+  }
+
+  const handleCreateDraft = async () => {
+    try {
+      const newDraft = {
+        title: formData.title,
+        company: formData.company,
+        country: formData.country,
+        city: formData.city,
+        published_at: null,
+        salary: `${formData.salary} ${formData.currency}`,
+        currency: formData.currency,
+        salary_amount: parseInt(formData.salary) || 0,
+        requirements: formData.requirements.split('\n').filter(req => req.trim()),
+        description: formData.description,
+        tags: formData.tags,
+        category: formData.title,
+        employment_type: formData.employment_type,
+        working_hours: formData.working_hours,
+        accommodation: formData.accommodation,
+        food: formData.food,
+        visa_status: formData.visa_status,
+        contract_duration: formData.contract_duration,
+        contact_person: formData.contact_person,
+        contact_phone: formData.phoneNumberChunks.join('') || formData.contact_phone,
+        contact_email: formData.contact_email,
+        expenses: formData.expenses,
+        notes: formData.notes
+      }
+
+      await jobService.createDraftJob(newDraft)
+      
+      // Refresh drafts data
+      const updatedDrafts = await jobService.getDraftJobs()
+      setDrafts(updatedDrafts)
+      setShowCreateModal(false)
+      
+      // Reset form
+      setFormData({
+        title: '',
+        company: '',
+        companyAddress: '',
+        country: '',
+        city: '',
+        salary: '',
+        currency: 'AED',
+        description: '',
+        requirements: '',
+        tags: [],
+        employment_type: 'Full-time',
+        working_hours: '8 hours/day',
+        accommodation: 'Provided',
+        food: 'Provided',
+        visa_status: 'Company will provide',
+        contract_duration: '2 years',
+        contact_person: '',
+        contact_phone: '',
+        contact_email: '',
+        expenses: [],
+        notes: '',
+        ocrText: '',
+        imageUrl: '',
+        newspaperUrl: '',
+        phoneNumberChunks: ['', '', '', ''],
+        jobTitleTag: '',
+        expenseConfig: {
+          employerPays: [],
+          candidatePays: []
+        },
+        attachments: []
+      })
+    } catch (error) {
+      console.error('Failed to create draft:', error)
+    }
+  }
+
+  // Fetch drafts data using service with pagination
+  useEffect(() => {
+    const fetchDrafts = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+        
+        // Get all drafts first (since we don't have paginated API yet)
+        const allDrafts = await jobService.getDraftJobs()
+        
+        // Apply client-side filtering
+        let filteredDrafts = allDrafts.filter(draft => {
+          const matchesSearch = !filters.search || 
+            draft.title?.toLowerCase().includes(filters.search.toLowerCase()) ||
+            draft.company?.toLowerCase().includes(filters.search.toLowerCase()) ||
+            draft.description?.toLowerCase().includes(filters.search.toLowerCase())
+          
+          const matchesCountry = !filters.country || draft.country === filters.country
+          const matchesCompany = !filters.company || draft.company === filters.company
+          const matchesCategory = !filters.category || draft.category === filters.category
+          
+          return matchesSearch && matchesCountry && matchesCompany && matchesCategory
+        })
+        
+        // Apply pagination
+        const total = filteredDrafts.length
+        const totalPages = Math.ceil(total / pagination.limit)
+        const startIndex = (pagination.page - 1) * pagination.limit
+        const endIndex = startIndex + pagination.limit
+        const paginatedDrafts = filteredDrafts.slice(startIndex, endIndex)
+        
+        setDrafts(paginatedDrafts)
+        setPagination(prev => ({
+          ...prev,
+          total,
+          totalPages
+        }))
+        
+      } catch (err) {
+        console.error('Failed to fetch drafts:', err)
+        setError(err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchDrafts()
+  }, [filters, pagination.page, pagination.limit])
+
+  const handleDraftSelect = (draftId) => {
+    const newSelected = new Set(selectedDrafts)
+    if (newSelected.has(draftId)) {
+      newSelected.delete(draftId)
+    } else {
+      newSelected.add(draftId)
+    }
+    setSelectedDrafts(newSelected)
+  }
+
+  const handlePublish = async (draftId) => {
+    try {
+      setIsPublishing(true)
+      await jobService.publishJob(draftId)
+      
+      // Refresh drafts data
+      const updatedDrafts = await jobService.getDraftJobs()
+      setDrafts(updatedDrafts)
+    } catch (error) {
+      console.error('Failed to publish draft:', error)
+    } finally {
+      setIsPublishing(false)
+    }
+  }
+
+  // Get unique values for filter options
+  const countries = [...new Set(drafts.map(draft => draft.country).filter(Boolean))]
+  const companyOptions = [...new Set(drafts.map(draft => draft.company).filter(Boolean))]
+  const categories = [...new Set(drafts.map(draft => draft.category || draft.title).filter(Boolean))]
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="animate-pulse">
+          {/* Header Skeleton */}
+          <div className="flex justify-between items-start mb-8">
+            <div>
+              <div className="h-8 bg-gray-200 rounded w-32 mb-2"></div>
+              <div className="h-4 bg-gray-200 rounded w-64"></div>
+            </div>
+            <div className="flex space-x-3">
+              <div className="h-10 bg-gray-200 rounded w-28"></div>
+              <div className="h-10 bg-gray-200 rounded w-32"></div>
+            </div>
+          </div>
+
+          {/* Search and Controls Skeleton */}
+          <div className="flex justify-between items-center mb-6">
+            <div className="h-10 bg-gray-200 rounded w-80"></div>
+            <div className="flex space-x-2">
+              <div className="h-10 w-10 bg-gray-200 rounded"></div>
+              <div className="h-10 w-10 bg-gray-200 rounded"></div>
+            </div>
+          </div>
+
+          {/* Cards Skeleton */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                {/* Status bar */}
+                <div className="h-1 bg-gray-200"></div>
+                
+                <div className="p-6 pt-12">
+                  {/* Header */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
+                      <div className="flex items-center mb-2">
+                        <div className="w-8 h-8 bg-gray-200 rounded-lg mr-3"></div>
+                        <div className="h-4 bg-gray-200 rounded w-32"></div>
+                      </div>
+                    </div>
+                    <div className="h-6 bg-gray-200 rounded-full w-16"></div>
+                  </div>
+
+                  {/* Details */}
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 bg-gray-200 rounded mr-2"></div>
+                      <div className="h-4 bg-gray-200 rounded w-24"></div>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 bg-gray-200 rounded mr-2"></div>
+                      <div className="h-4 bg-gray-200 rounded w-20"></div>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 bg-gray-200 rounded mr-2"></div>
+                      <div className="h-4 bg-gray-200 rounded w-28"></div>
+                    </div>
+                  </div>
+
+                  {/* Tags */}
+                  <div className="flex space-x-2 mb-4">
+                    <div className="h-6 bg-gray-200 rounded-md w-16"></div>
+                    <div className="h-6 bg-gray-200 rounded-md w-20"></div>
+                    <div className="h-6 bg-gray-200 rounded-md w-12"></div>
+                  </div>
+
+                  {/* Description */}
+                  <div className="space-y-2 mb-4">
+                    <div className="h-4 bg-gray-200 rounded w-full"></div>
+                    <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex justify-between items-center pt-4 border-t border-gray-100">
+                    <div className="flex space-x-2">
+                      <div className="h-7 bg-gray-200 rounded w-16"></div>
+                      <div className="h-7 bg-gray-200 rounded w-12"></div>
+                    </div>
+                    <div className="h-8 bg-gray-200 rounded w-20"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center py-16">
+          <div className="max-w-md mx-auto">
+            <div className="w-20 h-20 bg-gradient-to-br from-red-100 to-red-200 rounded-full flex items-center justify-center mx-auto mb-6">
+              <AlertCircle className="w-10 h-10 text-red-600" />
+            </div>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-3">Failed to load drafts</h2>
+            <p className="text-gray-600 mb-8 leading-relaxed">
+              We encountered an issue while loading your drafts. Please try again or contact support if the problem persists.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button 
+                onClick={() => window.location.reload()} 
+                className="inline-flex items-center px-6 py-3 text-sm font-medium text-white bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
+              >
+                Try Again
+              </button>
+              <button 
+                onClick={() => setShowCreateModal(true)}
+                className="inline-flex items-center px-6 py-3 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition-colors duration-200"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create New Draft
+              </button>
+            </div>
+            {error.message && (
+              <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-700 font-mono">{error.message}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Render grid view
+  const renderGridView = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {drafts.length > 0 ? (
+        drafts.map(draft => (
+          <InteractiveCard key={draft.id} hoverable clickable className="p-6 border-l-4 border-orange-500">
+            <div className="flex items-start justify-between mb-4">
+              <input
+                type="checkbox"
+                checked={selectedDrafts.has(draft.id)}
+                onChange={() => handleDraftSelect(draft.id)}
+                className="mt-1 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                <div className="w-1.5 h-1.5 bg-orange-400 rounded-full mr-1.5"></div>
+                Draft
+              </span>
+            </div>
+
+            <div className="flex items-start space-x-4 mb-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center">
+                <span className="text-white text-lg font-semibold">
+                  {draft.company?.charAt(0) || draft.title?.charAt(0) || 'D'}
+                </span>
+              </div>
+
+              <div className="flex-1">
+                <h3 className="text-lg font-medium text-gray-900 mb-1">
+                  {draft.title || 'Untitled Draft'}
+                </h3>
+                <p className="text-sm text-gray-600 mb-2">
+                  {draft.company || 'No Company'}
+                </p>
+
+                <div className="space-y-2">
+                  <div className="flex items-center text-sm text-gray-600">
+                    <MapPin className="w-4 h-4 mr-2 text-primary-400" />
+                    <span>{draft.city || draft.country || 'Location TBD'}</span>
+                  </div>
+                  {draft.salary && (
+                    <div className="flex items-center text-sm text-gray-600">
+                      <DollarSign className="w-4 h-4 mr-2 text-primary-400" />
+                      <span>{draft.salary} {draft.currency || 'AED'}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center text-sm text-gray-600">
+                    <Calendar className="w-4 h-4 mr-2 text-primary-400" />
+                    <span>Created {draft.created_at ? format(new Date(draft.created_at), 'MMM dd, yyyy') : 'Recently'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Tags */}
+            {draft.tags && draft.tags.length > 0 && (
+              <div className="mb-4">
+                <div className="flex flex-wrap gap-2">
+                  {draft.tags.slice(0, 3).map(tag => (
+                    <span key={tag} className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full border border-gray-200">
+                      {tag}
+                    </span>
+                  ))}
+                  {draft.tags.length > 3 && (
+                    <span className="text-xs text-primary-500 font-medium">+{draft.tags.length - 3} more</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Description Preview */}
+            {draft.description && (
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 line-clamp-2">
+                  {draft.description}
+                </p>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex justify-between items-center pt-4 border-t border-gray-100">
+              <div className="flex space-x-2">
+                <InteractiveButton
+                  onClick={() => {
+                    setPreviewDraft(draft)
+                    setShowPreviewModal(true)
+                  }}
+                  variant="secondary"
+                  size="sm"
+                  icon={Eye}
+                >
+                  Preview
+                </InteractiveButton>
+
+                <InteractiveButton
+                  onClick={() => {
+                    // Edit functionality
+                    console.log('Edit draft:', draft.id)
+                  }}
+                  variant="secondary"
+                  size="sm"
+                  icon={Edit}
+                >
+                  Edit
+                </InteractiveButton>
+              </div>
+
+              <div className="flex space-x-2">
+                <InteractiveButton
+                  onClick={() => handlePublish(draft.id)}
+                  variant="primary"
+                  size="sm"
+                  disabled={isPublishing}
+                  loading={isPublishing}
+                  icon={Check}
+                >
+                  Publish
+                </InteractiveButton>
+
+                <InteractiveButton
+                  onClick={async () => {
+                    try {
+                      await jobService.deleteJob(draft.id)
+                      // Refresh data
+                      const updatedDrafts = await jobService.getDraftJobs()
+                      setDrafts(updatedDrafts)
+                    } catch (error) {
+                      console.error('Failed to delete draft:', error)
+                    }
+                  }}
+                  variant="ghost"
+                  size="sm"
+                  icon={Trash2}
+                  className="text-red-600 hover:text-red-800"
+                >
+                  Delete
+                </InteractiveButton>
+              </div>
+            </div>
+          </InteractiveCard>
+        ))
+      ) : (
+        <div className="col-span-3 text-center py-12">
+          <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No drafts found</h3>
+          <p className="text-gray-600 mb-4">
+            {Object.values(filters).some(v => v) ? 'No drafts match your current filters.' : 'Create your first draft to get started.'}
+          </p>
+          <InteractiveButton
+            onClick={() => setShowCreateModal(true)}
+            variant="primary"
+            icon={Plus}
+          >
+            Create Draft
+          </InteractiveButton>
+        </div>
+      )}
+    </div>
+  )
+
+  // Render list view
+  const renderListView = () => (
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <input
+                type="checkbox"
+                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+            </th>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Job Title
+            </th>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Company
+            </th>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Location
+            </th>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Salary
+            </th>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Created
+            </th>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Status
+            </th>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Actions
+            </th>
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {drafts.length > 0 ? (
+            drafts.map(draft => (
+              <tr key={draft.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    checked={selectedDrafts.has(draft.id)}
+                    onChange={() => handleDraftSelect(draft.id)}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0 h-10 w-10">
+                      <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
+                        <span className="text-white text-sm font-semibold">
+                          {draft.title?.charAt(0) || 'D'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="ml-4">
+                      <div className="text-sm font-medium text-gray-900">
+                        {draft.title || 'Untitled Draft'}
+                      </div>
+                      {draft.tags && draft.tags.length > 0 && (
+                        <div className="text-sm text-gray-500">
+                          {draft.tags.slice(0, 2).join(', ')}
+                          {draft.tags.length > 2 && ` +${draft.tags.length - 2} more`}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm text-gray-900">{draft.company || 'No Company'}</div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm text-gray-900">{draft.city || draft.country || 'Location TBD'}</div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm text-gray-900">
+                    {draft.salary ? `${draft.salary} ${draft.currency || 'AED'}` : 'Not specified'}
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {draft.created_at ? format(new Date(draft.created_at), 'MMM dd, yyyy') : 'Recently'}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                    <div className="w-1.5 h-1.5 bg-orange-400 rounded-full mr-1.5"></div>
+                    Draft
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => {
+                        setPreviewDraft(draft)
+                        setShowPreviewModal(true)
+                      }}
+                      className="text-primary-600 hover:text-primary-900"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handlePublish(draft.id)}
+                      className="text-green-600 hover:text-green-900"
+                      disabled={isPublishing}
+                    >
+                      <Check className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await jobService.deleteJob(draft.id)
+                          // Refresh data
+                          const updatedDrafts = await jobService.getDraftJobs()
+                          setDrafts(updatedDrafts)
+                        } catch (error) {
+                          console.error('Failed to delete draft:', error)
+                        }
+                      }}
+                      className="text-red-600 hover:text-red-900"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan="8" className="px-6 py-12 text-center text-sm text-gray-500">
+                <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No drafts found</h3>
+                <p className="text-gray-600 mb-4">
+                  {Object.values(filters).some(v => v) ? 'No drafts match your current filters.' : 'Create your first draft to get started.'}
+                </p>
+                <InteractiveButton
+                  onClick={() => setShowCreateModal(true)}
+                  variant="primary"
+                  icon={Plus}
+                >
+                  Create Draft
+                </InteractiveButton>
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+export default Drafts;
+                size="sm"
+                icon={Trash2}
+              >
+                Delete ({selectedDrafts.size})
+              </InteractiveButton>
+            </>
+          )}
+
+          <InteractiveButton
+            onClick={() => setShowBulkCreateModal(true)}
+            variant="secondary"
+            icon={Copy}
+          >
+            Bulk Create
+          </InteractiveButton>
+          
+          <InteractiveButton
+            onClick={() => setShowCreateModal(true)}
+            variant="primary"
+            icon={Plus}
+          >
+            Create Draft
+          </InteractiveButton>
+
+          {/* View Toggle */}
+          <div className="flex rounded-md shadow-sm">
+            <InteractiveButton
+              onClick={() => setViewMode('grid')}
+              variant={viewMode === 'grid' ? 'primary' : 'outline'}
+              size="sm"
+              icon={Grid3X3}
+              className="rounded-r-none border-r-0"
+            />
+            <InteractiveButton
+              onClick={() => setViewMode('list')}
+              variant={viewMode === 'list' ? 'primary' : 'outline'}
+              size="sm"
+              icon={List}
+              className="rounded-l-none"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Interactive Filters */}
+      <InteractiveFilter
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        searchPlaceholder="Search drafts by title, company, or description..."
+        filterOptions={{
+          search: true,
+          country: {
+            type: 'select',
+            label: 'Country',
+            placeholder: 'All Countries',
+            options: countries.map(country => ({ value: country, label: country }))
+          },
+          company: {
+            type: 'select',
+            label: 'Company',
+            placeholder: 'All Companies',
+            options: companyOptions.map(company => ({ value: company, label: company }))
+          },
+          category: {
+            type: 'select',
+            label: 'Category',
+            placeholder: 'All Categories',
+            options: categories.map(category => ({ value: category, label: category }))
+          }
+        }}
+        className="mb-6"
+      />
+
+      {/* Results Info */}
+      <div className="mb-4 text-sm text-gray-500 flex items-center justify-between">
+        <span>
+          Showing {drafts.length > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} results
+        </span>
+      </div>
+
+      {/* Drafts View */}
+      <div className="grid grid-cols-1 gap-6">
+        {viewMode === 'grid' ? renderGridView() : renderListView()}
+      </div>
+
+      {/* Interactive Pagination */}
+      {drafts.length > 0 && pagination.totalPages > 1 && (
+        <div className="mt-8 flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0 bg-white p-4 rounded-lg border border-gray-200">
+          <PaginationInfo
+            currentPage={pagination.page}
+            totalPages={Math.max(1, pagination.totalPages)}
+            totalItems={pagination.total}
+            itemsPerPage={pagination.limit}
+          />
+
+          <InteractivePagination
+            currentPage={pagination.page}
+            totalPages={pagination.totalPages}
+            onPageChange={handlePageChange}
+            size="md"
+          />
+        </div>
+      )}
+
+      {/* Create Draft Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">Create New Draft</h2>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Job Title *</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    placeholder="Enter job title"
+                    value={formData.title}
+                    onChange={(e) => handleInputChange('title', e.target.value)}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Company *</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    placeholder="Enter company name"
+                    value={formData.company}
+                    onChange={(e) => handleInputChange('company', e.target.value)}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Country *</label>
+                  <select
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    value={formData.country}
+                    onChange={(e) => handleInputChange('country', e.target.value)}
+                  >
+                    <option value="">Select country</option>
+                    <option value="UAE">UAE</option>
+                    <option value="Saudi Arabia">Saudi Arabia</option>
+                    <option value="Qatar">Qatar</option>
+                    <option value="Kuwait">Kuwait</option>
+                    <option value="Oman">Oman</option>
+                    <option value="Bahrain">Bahrain</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    placeholder="Enter city"
+                    value={formData.city}
+                    onChange={(e) => handleInputChange('city', e.target.value)}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Salary</label>
+                  <div className="flex">
+                    <input
+                      type="number"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="Amount"
+                      value={formData.salary}
+                      onChange={(e) => handleInputChange('salary', e.target.value)}
+                    />
+                    <select
+                      className="border-t border-b border-r border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      value={formData.currency}
+                      onChange={(e) => handleInputChange('currency', e.target.value)}
+                    >
+                      <option value="AED">AED</option>
+                      <option value="SAR">SAR</option>
+                      <option value="QAR">QAR</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="Enter job description"
+                  value={formData.description}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateDraft}
+                className="px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700"
+              >
+                Create Draft
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Create Modal */}
+      {showBulkCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-lg max-h-screen overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">Bulk Create Drafts</h2>
+              <button
+                onClick={() => setShowBulkCreateModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Job Type</label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  value={bulkCreateJobType}
+                  onChange={(e) => setBulkCreateJobType(e.target.value)}
+                >
+                  <option value="Cook">Cook</option>
+                  <option value="Driver">Driver</option>
+                  <option value="Cleaner">Cleaner</option>
+                  <option value="Security Guard">Security Guard</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Countries</label>
+                {bulkCreateCountries.map((countryData, index) => (
+                  <div key={index} className="flex items-center space-x-2 mb-2">
+                    <select
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      value={countryData.country}
+                      onChange={(e) => updateBulkCountry(index, 'country', e.target.value)}
+                    >
+                      <option value="UAE">UAE</option>
+                      <option value="Saudi Arabia">Saudi Arabia</option>
+                      <option value="Qatar">Qatar</option>
+                    </select>
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      value={countryData.jobCount}
+                      onChange={(e) => updateBulkCountry(index, 'jobCount', parseInt(e.target.value))}
+                    />
+                    {bulkCreateCountries.length > 1 && (
+                      <button
+                        onClick={() => removeBulkCountry(index)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  onClick={addBulkCountry}
+                  className="text-sm text-primary-600 hover:text-primary-800"
+                >
+                  + Add Country
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => setShowBulkCreateModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkCreate}
+                className="px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700"
+              >
+                Create Drafts
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Preview Modal */}
+      {showPreviewModal && previewDraft && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg w-full max-w-4xl max-h-screen overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Job Preview</h2>
+                <p className="text-sm text-gray-600 mt-1">Preview how this job will appear when published</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowPreviewModal(false)
+                  setPreviewDraft(null)
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="bg-gradient-to-br from-primary-50 to-blue-50 rounded-xl p-8">
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">{previewDraft.title}</h1>
+                <div className="flex items-center text-lg text-gray-700 mb-4">
+                  <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center mr-3">
+                    <span className="text-white font-semibold">
+                      {previewDraft.company?.charAt(0) || 'C'}
+                    </span>
+                  </div>
+                  <span className="font-medium">{previewDraft.company}</span>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="flex items-center">
+                    <MapPin className="w-5 h-5 mr-2 text-primary-500" />
+                    <span>{previewDraft.city || previewDraft.country}</span>
+                  </div>
+                  {previewDraft.salary && (
+                    <div className="flex items-center">
+                      <DollarSign className="w-5 h-5 mr-2 text-primary-500" />
+                      <span>{previewDraft.salary} {previewDraft.currency}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center">
+                    <Calendar className="w-5 h-5 mr-2 text-primary-500" />
+                    <span>Full-time</span>
+                  </div>
+                </div>
+                
+                {previewDraft.description && (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Description</h3>
+                    <p className="text-gray-700 leading-relaxed">{previewDraft.description}</p>
+                  </div>
+                )}
+                
+                {previewDraft.tags && previewDraft.tags.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Skills</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {previewDraft.tags.map(tag => (
+                        <span key={tag} className="px-3 py-1 bg-primary-100 text-primary-800 rounded-full text-sm">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-3 p-6 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setShowPreviewModal(false)
+                  setPreviewDraft(null)
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  handlePublish(previewDraft.id)
+                  setShowPreviewModal(false)
+                  setPreviewDraft(null)
+                }}
+                className="px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700"
+                disabled={isPublishing}
+              >
+                {isPublishing ? 'Publishing...' : 'Publish Now'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+                        <span className="font-semibold text-green-600">{draft.salary_range}</span>
+                      </div>
+                    )}
+                    
+                    <div className="flex items-center text-sm text-gray-500">
+                      <Calendar className="w-4 h-4 mr-2 text-gray-400" />
+                      <span>Created {format(new Date(draft.created_at), 'MMM dd, yyyy')}</span>
+                    </div>
+                  </div>
+
+                  {/* Tags */}
+                  {draft.tags && draft.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-4">
+                      {draft.tags.slice(0, 3).map((tag, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                      {draft.tags.length > 3 && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-50 text-gray-600 border border-gray-200">
+                          +{draft.tags.length - 3} more
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Description */}
+                  {draft.description && (
+                    <p className="text-sm text-gray-600 line-clamp-2 mb-4 leading-relaxed">
+                      {draft.description}
+                    </p>
+                  )}
+
+                  {/* Requirements Preview */}
+                  {draft.requirements && Array.isArray(draft.requirements) && draft.requirements.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-xs font-medium text-gray-500 mb-1">Requirements:</p>
+                      <div className="text-xs text-gray-600 space-y-1">
+                        {draft.requirements.slice(0, 2).map((req, index) => (
+                          <div key={index} className="flex items-start">
+                            <div className="w-1 h-1 bg-gray-400 rounded-full mt-1.5 mr-2 flex-shrink-0"></div>
+                            <span className="line-clamp-1">{req}</span>
+                          </div>
+                        ))}
+                        {draft.requirements.length > 2 && (
+                          <span className="text-gray-500 text-xs">+{draft.requirements.length - 2} more requirements</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Card Actions */}
+                <div className={`${viewMode === 'list' ? 'flex items-center space-x-3 ml-6' : 'flex items-center justify-between pt-4 border-t border-gray-100'}`}>
+                  <div className="flex items-center space-x-2">
+                    <button 
+                      className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-primary-700 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors duration-200"
+                      onClick={() => {
+                        setPreviewDraft(draft)
+                        setShowPreviewModal(true)
+                      }}
+                    >
+                      <Eye className="w-3 h-3 mr-1" />
+                      Preview
+                    </button>
+                    <button 
+                      className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                      onClick={() => {
+                        // Set form data to draft values and open modal
+                        setFormData({
+                          title: draft.title,
+                          company: draft.company,
+                          country: draft.country,
+                          city: draft.city,
+                          salary: draft.salary_amount || '',
+                          currency: draft.currency || 'AED',
+                          description: draft.description || '',
+                          requirements: Array.isArray(draft.requirements) ? draft.requirements.join('\n') : '',
+                          tags: Array.isArray(draft.tags) ? draft.tags : [],
+                          employment_type: draft.employment_type || 'Full-time',
+                          working_hours: draft.working_hours || '8 hours/day',
+                          accommodation: draft.accommodation || 'Provided',
+                          food: draft.food || 'Provided',
+                          visa_status: draft.visa_status || 'Company will provide',
+                          contract_duration: draft.contract_duration || '2 years',
+                          contact_person: draft.contact_person || '',
+                          contact_phone: draft.contact_phone || '',
+                          contact_email: draft.contact_email || '',
+                          expenses: Array.isArray(draft.expenses) ? draft.expenses : [],
+                          notes: draft.notes || '',
+                          ocrText: '',
+                          imageUrl: '',
+                          phoneNumberChunks: ['', '', '', ''],
+                          jobTitleTag: ''
+                        })
+                        setShowCreateModal(true)
+                      }}
+                    >
+                      <Edit className="w-3 h-3 mr-1" />
+                      Edit
+                    </button>
+                  </div>
+                  
+                  <button
+                    onClick={() => handlePublish(draft.id)}
+                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={publishMutation.isLoading}
+                  >
+                    <Check className="w-4 h-4 mr-1.5" />
+                    {publishMutation.isLoading ? 'Publishing...' : 'Publish'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Hover Effect Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-r from-primary-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+            </div>
+          ))
+        ) : (
+          <div className="col-span-3">
+            <div className="text-center py-16 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl border-2 border-dashed border-gray-300">
+              <div className="max-w-md mx-auto">
+                <div className="w-20 h-20 bg-gradient-to-br from-primary-100 to-primary-200 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <FileText className="w-10 h-10 text-primary-600" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                  {searchQuery ? 'No matching drafts' : 'No drafts yet'}
+                </h3>
+                <p className="text-gray-600 mb-8 leading-relaxed">
+                  {searchQuery 
+                    ? 'Try adjusting your search criteria or create a new draft that matches your needs.' 
+                    : 'Create your first job draft to get started. You can build from scratch or extract from newspaper ads.'
+                  }
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="inline-flex items-center px-6 py-3 text-sm font-medium text-white bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create New Draft
+                  </button>
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="inline-flex items-center px-6 py-3 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition-colors duration-200"
+                    >
+                      Clear Search
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Create Draft Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 w-full max-w-5xl max-h-screen overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-semibold text-gray-900">Create Single Job Draft</h2>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            {/* Draft Creation Mode Selector */}
+            <div className="mb-6">
+              <div className="flex border-b border-gray-200">
+                <button
+                  className={`py-3 px-6 font-medium text-sm transition-colors ${
+                    draftMode === 'manual'
+                      ? 'border-b-2 border-primary-500 text-primary-600 bg-primary-50'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                  }`}
+                  onClick={() => setDraftMode('manual')}
+                >
+                  <Edit className="w-4 h-4 mr-2 inline" />
+                  Manual Entry
+                </button>
+                <button
+                  className={`py-3 px-6 font-medium text-sm transition-colors ${
+                    draftMode === 'newspaper'
+                      ? 'border-b-2 border-primary-500 text-primary-600 bg-primary-50'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                  }`}
+                  onClick={() => setDraftMode('newspaper')}
+                >
+                  <FileText className="w-4 h-4 mr-2 inline" />
+                  From Newspaper
+                </button>
+              </div>
+            </div>
+
+            {draftMode === 'newspaper' ? (
+              <div className="space-y-6">
+                {/* Newspaper Upload/URL Section */}
+                <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <FileText className="w-5 h-5 mr-2 text-blue-600" />
+                    Newspaper Source
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Upload Image
+                      </label>
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-primary-400 transition-colors">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                          id="image-upload"
+                        />
+                        <label htmlFor="image-upload" className="cursor-pointer">
+                          <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-sm text-gray-600">Click to upload newspaper image</p>
+                          <p className="text-xs text-gray-500 mt-1">PNG, JPG up to 10MB</p>
+                        </label>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Or Enter URL
+                      </label>
+                      <div className="flex space-x-2">
+                        <input
+                          type="url"
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="https://example.com/newspaper-image.jpg"
+                          value={formData.newspaperUrl}
+                          onChange={(e) => handleInputChange('newspaperUrl', e.target.value)}
+                        />
+                        <button
+                          onClick={() => handleUrlInput(formData.newspaperUrl)}
+                          className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors"
+                          disabled={!formData.newspaperUrl}
+                        >
+                          <Link className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* OCR Results */}
+                  {formData.ocrText && (
+                    <div className="mt-4 p-4 bg-white rounded-lg border border-gray-200">
+                      <h4 className="text-sm font-medium text-gray-900 mb-2">Extracted Text:</h4>
+                      <pre className="text-xs text-gray-600 whitespace-pre-wrap">{formData.ocrText}</pre>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Common Form Fields */}
+            <div className="space-y-6 mt-6">
+              {/* Employer Company Name with Auto-suggest */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Company Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Employer Company Name *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        placeholder="Start typing company name..."
+                        value={formData.company}
+                        onChange={(e) => {
+                          handleInputChange('company', e.target.value);
+                          setShowCompanyDropdown(e.target.value.length > 0);
+                        }}
+                        onFocus={() => setShowCompanyDropdown(true)}
+                        onBlur={() => setTimeout(() => setShowCompanyDropdown(false), 200)}
+                      />
+                      {showCompanyDropdown && (
+                        <div className="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-y-auto">
+                          {companies
+                            .filter(company => 
+                              company.name.toLowerCase().includes(formData.company.toLowerCase())
+                            )
+                            .map((company, index) => (
+                              <div
+                                key={index}
+                                className="px-4 py-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+                                onMouseDown={() => handleCompanySelect(company)}
+                              >
+                                <div className="font-medium text-gray-900">{company.name}</div>
+                                <div className="text-sm text-gray-600 flex items-center mt-1">
+                                  <MapPin className="w-3 h-3 mr-1" />
+                                  {company.address}
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Company Address (Auto-filled, Editable)
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="Company address will auto-fill"
+                      value={formData.companyAddress}
+                      onChange={(e) => handleInputChange('companyAddress', e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Job Title with Dictionary Tags */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Job Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Job Title * (Select matching tags from dictionary)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        placeholder="e.g., Cook, Driver, Security Guard..."
+                        value={formData.title}
+                        onChange={(e) => {
+                          handleInputChange('title', e.target.value);
+                          setShowJobTitleDropdown(e.target.value.length > 0);
+                        }}
+                        onFocus={() => setShowJobTitleDropdown(true)}
+                        onBlur={() => setTimeout(() => setShowJobTitleDropdown(false), 200)}
+                      />
+                      {showJobTitleDropdown && (
+                        <div className="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-y-auto">
+                          {jobTitleDictionary
+                            .filter(job => 
+                              job.title.toLowerCase().includes(formData.title.toLowerCase())
+                            )
+                            .map((job, index) => (
+                              <div
+                                key={index}
+                                className="px-4 py-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+                                onMouseDown={() => handleJobTitleSelect(job)}
+                              >
+                                <div className="font-medium text-gray-900">{job.title}</div>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {job.tags.map((tag, tagIndex) => (
+                                    <span key={tagIndex} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                      <Tag className="w-3 h-3 mr-1" />
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                    {formData.tags.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {formData.tags.map((tag, index) => (
+                          <span key={index} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                            {tag}
+                            <button
+                              type="button"
+                              className="ml-1 text-green-600 hover:text-green-800"
+                              onClick={() => removeTag(tag)}
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        placeholder="Dubai"
+                        value={formData.city}
+                        onChange={(e) => handleInputChange('city', e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
+                      <select
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        value={formData.country}
+                        onChange={(e) => handleInputChange('country', e.target.value)}
+                      >
+                        <option value="">Select Country</option>
+                        <option value="UAE">UAE</option>
+                        <option value="Qatar">Qatar</option>
+                        <option value="Saudi Arabia">Saudi Arabia</option>
+                        <option value="Kuwait">Kuwait</option>
+                        <option value="Bahrain">Bahrain</option>
+                        <option value="Oman">Oman</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Configure Expense */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <Settings className="w-5 h-5 mr-2" />
+                  Configure Expense (Define who pays for what)
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Employer Pays For:</h4>
+                    <div className="space-y-2">
+                      {expenseCategories.map((category, index) => (
+                        <label key={index} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                            checked={formData.expenseConfig.employerPays.includes(category)}
+                            onChange={(e) => handleExpenseConfigChange(category, 'employerPays', e.target.checked)}
+                          />
+                          <span className="ml-2 text-sm text-gray-700">{category}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Candidate Pays For:</h4>
+                    <div className="space-y-2">
+                      {expenseCategories.map((category, index) => (
+                        <label key={index} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                            checked={formData.expenseConfig.candidatePays.includes(category)}
+                            onChange={(e) => handleExpenseConfigChange(category, 'candidatePays', e.target.checked)}
+                          />
+                          <span className="ml-2 text-sm text-gray-700">{category}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional Notes with Templates */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Additional Notes</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select and edit from template
+                    </label>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {notesTemplates.map((template, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1 rounded-full transition-colors"
+                          onClick={() => addNotesFromTemplate(template)}
+                        >
+                          + {template}
+                        </button>
+                      ))}
+                    </div>
+                    <textarea
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="Enter additional notes or select from templates above..."
+                      value={formData.notes}
+                      onChange={(e) => handleInputChange('notes', e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Attach Image/URL */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <Image className="w-5 h-5 mr-2" />
+                  Attach Image/URL (Support for newspaper images)
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Upload Image</label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-primary-400 transition-colors">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                        id="attachment-upload"
+                      />
+                      <label htmlFor="attachment-upload" className="cursor-pointer">
+                        <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                        <p className="text-sm text-gray-600">Click to upload image</p>
+                      </label>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Or Add URL</label>
+                    <input
+                      type="url"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="https://example.com/image.jpg"
+                      value={formData.imageUrl}
+                      onChange={(e) => handleInputChange('imageUrl', e.target.value)}
+                    />
+                  </div>
+                </div>
+                {formData.attachments.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Attachments:</h4>
+                    <div className="space-y-2">
+                      {formData.attachments.map((attachment, index) => (
+                        <div key={index} className="flex items-center justify-between p-2 bg-white rounded border">
+                          <span className="text-sm text-gray-600">{attachment.name}</span>
+                          <button
+                            type="button"
+                            className="text-red-600 hover:text-red-800"
+                            onClick={() => {
+                              const newAttachments = formData.attachments.filter((_, i) => i !== index)
+                              handleInputChange('attachments', newAttachments)
+                            }}
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Phone Number Entry with Speaker */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <Phone className="w-5 h-5 mr-2" />
+                  Phone Number Entry
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Enter in chunks of 4 digits (e.g., "1231 1223 4432 1222")
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      {[0, 1, 2, 3].map(index => (
+                        <input
+                          key={index}
+                          type="text"
+                          maxLength="4"
+                          className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-center font-mono"
+                          placeholder="0000"
+                          value={formData.phoneNumberChunks[index]}
+                          onChange={(e) => handlePhoneNumberChange(index, e.target.value)}
+                        />
+                      ))}
+                      <button
+                        type="button"
+                        className="p-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors"
+                        onClick={speakPhoneNumber}
+                        title="Speak phone number"
+                      >
+                        <Volume2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Full number: {formData.phoneNumberChunks.join(' ') || 'Enter phone number chunks'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Job Description and Requirements */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Job Details</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Job Description</label>
+                    <textarea
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="Enter detailed job description..."
+                      value={formData.description}
+                      onChange={(e) => handleInputChange('description', e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Requirements (one per line)</label>
+                    <textarea
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="Enter job requirements, one per line..."
+                      value={formData.requirements}
+                      onChange={(e) => handleInputChange('requirements', e.target.value)}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Salary Amount</label>
+                      <div className="flex space-x-2">
+                        <input
+                          type="number"
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="2500"
+                          value={formData.salary}
+                          onChange={(e) => handleInputChange('salary', e.target.value)}
+                        />
+                        <select
+                          className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          value={formData.currency}
+                          onChange={(e) => handleInputChange('currency', e.target.value)}
+                        >
+                          <option value="AED">AED</option>
+                          <option value="QAR">QAR</option>
+                          <option value="SAR">SAR</option>
+                          <option value="KWD">KWD</option>
+                          <option value="BHD">BHD</option>
+                          <option value="OMR">OMR</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Employment Type</label>
+                      <select
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        value={formData.employment_type}
+                        onChange={(e) => handleInputChange('employment_type', e.target.value)}
+                      >
+                        <option value="Full-time">Full-time</option>
+                        <option value="Part-time">Part-time</option>
+                        <option value="Contract">Contract</option>
+                        <option value="Temporary">Temporary</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-gray-200">
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="px-6 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition-colors duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateDraft}
+                className="px-6 py-2 text-sm font-medium text-white bg-gray-600 hover:bg-gray-700 rounded-lg transition-colors duration-200 flex items-center"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Save as Draft
+              </button>
+              <button
+                onClick={() => {
+                  handleCreateDraft()
+                  // In a real app, this would also publish and notify
+                  console.log('Publishing and notifying...')
+                }}
+                className="px-6 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 flex items-center"
+              >
+                <Check className="w-4 h-4 mr-2" />
+                Publish and Notify
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Create Drafts Modal */}
+      {showBulkCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-semibold text-gray-900">Bulk Create Drafts</h2>
+                <p className="text-sm text-gray-600 mt-1">Create multiple job drafts by specified country</p>
+              </div>
+              <button
+                onClick={() => setShowBulkCreateModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-6">
+              {/* Example Scenarios */}
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <h3 className="text-sm font-medium text-blue-900 mb-2">Example Scenarios:</h3>
+                <div className="text-sm text-blue-800 space-y-1">
+                  <p>• "12 job postings from UAE, 3 from Malaysia"</p>
+                  <p>• "5 Cook positions from Qatar, 8 Driver positions from Saudi Arabia"</p>
+                </div>
+              </div>
+
+              {/* Countries Section */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Countries & Job Count
+                  </label>
+                  <button
+                    onClick={addBulkCountry}
+                    className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-primary-700 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors duration-200"
+                  >
+                    <Plus className="w-3 h-3 mr-1" />
+                    Add Country
+                  </button>
+                </div>
+                
+                <div className="space-y-3 max-h-48 overflow-y-auto">
+                  {bulkCreateCountries.map((item, index) => (
+                    <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                      <input
+                        type="number"
+                        className="w-16 px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        placeholder="3"
+                        min="1"
+                        max="50"
+                        value={item.jobCount}
+                        onChange={(e) => updateBulkCountry(index, 'jobCount', parseInt(e.target.value) || 1)}
+                      />
+                      <span className="text-sm text-gray-600">jobs from</span>
+                      <select 
+                        className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        value={item.country}
+                        onChange={(e) => updateBulkCountry(index, 'country', e.target.value)}
+                      >
+                        <option value="UAE">UAE</option>
+                        <option value="Saudi Arabia">Saudi Arabia</option>
+                        <option value="Qatar">Qatar</option>
+                        <option value="Kuwait">Kuwait</option>
+                        <option value="Oman">Oman</option>
+                        <option value="Bahrain">Bahrain</option>
+                        <option value="Malaysia">Malaysia</option>
+                        <option value="Singapore">Singapore</option>
+                      </select>
+                      {bulkCreateCountries.length > 1 && (
+                        <button
+                          onClick={() => removeBulkCountry(index)}
+                          className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors duration-200"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Summary */}
+                <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-green-700 font-medium">
+                      Total: {bulkCreateCountries.reduce((sum, item) => sum + item.jobCount, 0)} jobs
+                    </span>
+                    <span className="text-green-600">
+                      across {bulkCreateCountries.length} {bulkCreateCountries.length === 1 ? 'country' : 'countries'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Job Type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Job Type for All Drafts
+                </label>
+                <select 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  value={bulkCreateJobType}
+                  onChange={(e) => setBulkCreateJobType(e.target.value)}
+                >
+                  {jobTitleDictionary.map((job, index) => (
+                    <option key={index} value={job.title}>{job.title}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Workflow Description */}
+              <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+                <h3 className="text-sm font-medium text-yellow-900 mb-2 flex items-center">
+                  <Globe className="w-4 h-4 mr-2" />
+                  Workflow Process:
+                </h3>
+                <div className="text-sm text-yellow-800 space-y-1">
+                  <p>1. Create bulk drafts → 2. Fill details individually → 3. Publish from draft list</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-gray-200">
+              <button
+                onClick={() => setShowBulkCreateModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition-colors duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkCreate}
+                className="px-6 py-2 text-sm font-medium text-white bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 flex items-center"
+              >
+                <Copy className="w-4 h-4 mr-2" />
+                Create {bulkCreateCountries.reduce((sum, item) => sum + item.jobCount, 0)} Drafts
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Preview Modal */}
+      {showPreviewModal && previewDraft && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg w-full max-w-4xl max-h-screen overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Job Preview</h2>
+                <p className="text-sm text-gray-600 mt-1">Preview how this job will appear when published</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowPreviewModal(false)
+                  setPreviewDraft(null)
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Job Preview Content */}
+            <div className="p-6">
+              <div className="bg-gradient-to-br from-primary-50 to-blue-50 rounded-xl p-8 mb-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2">{previewDraft.title}</h1>
+                    <div className="flex items-center text-lg text-gray-700 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Job Title *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        placeholder="Enter job title"
+                        value={formData.title}
+                        onChange={(e) => {
+                          handleInputChange('title', e.target.value);
+                          setShowJobTitleDropdown(e.target.value.length > 0);
+                        }}
+                        onFocus={() => setShowJobTitleDropdown(true)}
+                        onBlur={() => setTimeout(() => setShowJobTitleDropdown(false), 200)}
+                      />
+                      {showJobTitleDropdown && formData.title && (
+                        <div className="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-y-auto">
+                          {jobTitles
+                            .filter(title => 
+                              title.toLowerCase().includes(formData.title.toLowerCase())
+                            )
+                            .map((title, index) => (
+                              <div
+                                key={index}
+                                className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                onMouseDown={() => handleJobTitleSelect(title)}
+                              >
+                                {title}
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                    {formData.jobTitleTag && (
+                      <div className="mt-2 flex items-center">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {formData.jobTitleTag}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Company Name *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        placeholder="Enter company name"
+                        value={formData.company}
+                        onChange={(e) => {
+                          handleInputChange('company', e.target.value);
+                          setShowCompanyDropdown(e.target.value.length > 0);
+                        }}
+                        onFocus={() => setShowCompanyDropdown(true)}
+                        onBlur={() => setTimeout(() => setShowCompanyDropdown(false), 200)}
+                      />
+                      {showCompanyDropdown && formData.company && (
+                        <div className="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-y-auto">
+                          {companies
+                            .filter(company => 
+                              company.name.toLowerCase().includes(formData.company.toLowerCase())
+                            )
+                            .map((company, index) => (
+                              <div
+                                key={index}
+                                className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                onMouseDown={() => handleCompanySelect(company)}
+                              >
+                                <div className="font-medium">{company.name}</div>
+                                <div className="text-sm text-gray-600">{company.address}</div>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Country *
+                    </label>
+                    <select
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      value={formData.country}
+                      onChange={(e) => handleInputChange('country', e.target.value)}
+                    >
+                      <option value="">Select country</option>
+                      <option value="UAE">UAE</option>
+                      <option value="Saudi Arabia">Saudi Arabia</option>
+                      <option value="Qatar">Qatar</option>
+                      <option value="Kuwait">Kuwait</option>
+                      <option value="Oman">Oman</option>
+                      <option value="Bahrain">Bahrain</option>
+                      <option value="Malaysia">Malaysia</option>
+                      <option value="Singapore">Singapore</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      City *
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="Enter city"
+                      value={formData.city}
+                      onChange={(e) => handleInputChange('city', e.target.value)}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Salary *
+                    </label>
+                    <div className="flex">
+                      <input
+                        type="number"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        placeholder="Amount"
+                        value={formData.salary}
+                        onChange={(e) => handleInputChange('salary', e.target.value)}
+                      />
+                      <select
+                        className="border-t border-b border-r border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        value={formData.currency}
+                        onChange={(e) => handleInputChange('currency', e.target.value)}
+                      >
+                        <option value="AED">AED</option>
+                        <option value="SAR">SAR</option>
+                        <option value="QAR">QAR</option>
+                        <option value="KWD">KWD</option>
+                        <option value="OMR">OMR</option>
+                        <option value="BHD">BHD</option>
+                        <option value="MYR">MYR</option>
+                        <option value="SGD">SGD</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Contact Person
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="Enter contact person name"
+                      value={formData.contact_person}
+                      onChange={(e) => handleInputChange('contact_person', e.target.value)}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Contact Email
+                    </label>
+                    <input
+                      type="email"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="Enter contact email"
+                      value={formData.contact_email}
+                      onChange={(e) => handleInputChange('contact_email', e.target.value)}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Contact Phone (4-digit chunks)
+                    </label>
+                    <div className="flex space-x-2">
+                      {[0, 1, 2, 3].map(index => (
+                        <input
+                          key={index}
+                          type="text"
+                          maxLength="4"
+                          className="w-16 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-center"
+                          placeholder="0000"
+                          value={formData.phoneNumberChunks[index]}
+                          onChange={(e) => handlePhoneNumberChange(index, e.target.value)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Job Description *
+                  </label>
+                  <textarea
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    placeholder="Enter job description"
+                    value={formData.description}
+                    onChange={(e) => handleInputChange('description', e.target.value)}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Requirements (one per line)
+                  </label>
+                  <textarea
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    placeholder="Enter job requirements, one per line"
+                    value={formData.requirements}
+                    onChange={(e) => handleInputChange('requirements', e.target.value)}
+                  />
+                </div>
+                
+                {/* Expense Configuration */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Expenses
+                  </label>
+                  <div className="space-y-2">
+                    {formData.expenses.map((expense, index) => (
+                      <div key={index} className="flex space-x-2">
+                        <input
+                          type="text"
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="Expense description"
+                          value={expense.description}
+                          onChange={(e) => updateExpense(index, 'description', e.target.value)}
+                        />
+                        <input
+                          type="number"
+                          className="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="Amount"
+                          value={expense.amount}
+                          onChange={(e) => updateExpense(index, 'amount', e.target.value)}
+                        />
+                        <select 
+                          className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          value={expense.currency}
+                          onChange={(e) => updateExpense(index, 'currency', e.target.value)}
+                        >
+                          <option value="AED">AED</option>
+                          <option value="SAR">SAR</option>
+                          <option value="QAR">QAR</option>
+                          <option value="KWD">KWD</option>
+                          <option value="OMR">OMR</option>
+                          <option value="BHD">BHD</option>
+                          <option value="MYR">MYR</option>
+                          <option value="SGD">SGD</option>
+                        </select>
+                        <button 
+                          className="btn-secondary p-2"
+                          onClick={() => removeExpense(index)}
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    <button 
+                      className="btn-secondary text-sm flex items-center"
+                      onClick={addExpense}
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add Expense
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Template-based Notes */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Additional Notes
+                  </label>
+                  <textarea
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    placeholder="Enter additional notes"
+                    value={formData.notes}
+                    onChange={(e) => handleInputChange('notes', e.target.value)}
+                  />
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button 
+                      className="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded"
+                      onClick={() => addTag('Visa processing time: 2 weeks')}
+                    >
+                      Visa processing time: 2 weeks
+                    </button>
+                    <button 
+                      className="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded"
+                      onClick={() => addTag('Medical check required')}
+                    >
+                      Medical check required
+                    </button>
+                    <button 
+                      className="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded"
+                      onClick={() => addTag('Accommodation provided')}
+                    >
+                      Accommodation provided
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Tags */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tags
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {formData.tags.map((tag, index) => (
+                      <span 
+                        key={index} 
+                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                      >
+                        {tag}
+                        <button 
+                          type="button" 
+                          className="flex-shrink-0 ml-1.5 h-4 w-4 rounded-full inline-flex items-center justify-center text-blue-400 hover:bg-blue-200 hover:text-blue-500 focus:outline-none focus:bg-blue-500 focus:text-white"
+                          onClick={() => removeTag(tag)}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateDraft}
+                className="btn-primary"
+              >
+                Create Draft
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Bulk Create Modal */}
+      {showBulkCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-lg max-h-screen overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">Bulk Create Drafts</h2>
+              <button
+                onClick={() => setShowBulkCreateModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-6">
+              {/* Countries Section */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Countries & Job Count
+                  </label>
+                  <button
+                    onClick={() => {
+                      setBulkCreateCountries([...bulkCreateCountries, { country: 'UAE', jobCount: 3 }])
+                    }}
+                    className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-primary-700 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors duration-200"
+                  >
+                    <Plus className="w-3 h-3 mr-1" />
+                    Add Country
+                  </button>
+                </div>
+                
+                <div className="space-y-3 max-h-48 overflow-y-auto">
+                  {bulkCreateCountries.map((item, index) => (
+                    <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                      <input
+                        type="number"
+                        className="w-16 px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        placeholder="3"
+                        min="1"
+                        max="50"
+                        value={item.jobCount}
+                        onChange={(e) => {
+                          const newCountries = [...bulkCreateCountries]
+                          newCountries[index].jobCount = parseInt(e.target.value) || 1
+                          setBulkCreateCountries(newCountries)
+                        }}
+                      />
+                      <span className="text-sm text-gray-600">jobs from</span>
+                      <select 
+                        className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        value={item.country}
+                        onChange={(e) => {
+                          const newCountries = [...bulkCreateCountries]
+                          newCountries[index].country = e.target.value
+                          setBulkCreateCountries(newCountries)
+                        }}
+                      >
+                        <option value="UAE">UAE</option>
+                        <option value="Saudi Arabia">Saudi Arabia</option>
+                        <option value="Qatar">Qatar</option>
+                        <option value="Kuwait">Kuwait</option>
+                        <option value="Oman">Oman</option>
+                        <option value="Bahrain">Bahrain</option>
+                        <option value="Malaysia">Malaysia</option>
+                        <option value="Singapore">Singapore</option>
+                      </select>
+                      {bulkCreateCountries.length > 1 && (
+                        <button
+                          onClick={() => {
+                            const newCountries = bulkCreateCountries.filter((_, i) => i !== index)
+                            setBulkCreateCountries(newCountries)
+                          }}
+                          className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors duration-200"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Summary */}
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-blue-700 font-medium">
+                      Total: {bulkCreateCountries.reduce((sum, item) => sum + item.jobCount, 0)} jobs
+                    </span>
+                    <span className="text-blue-600">
+                      across {bulkCreateCountries.length} {bulkCreateCountries.length === 1 ? 'country' : 'countries'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Job Type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Job Type
+                </label>
+                <select 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  value={bulkCreateJobType}
+                  onChange={(e) => setBulkCreateJobType(e.target.value)}
+                >
+                  <option value="Cook">Cook</option>
+                  <option value="Driver">Driver</option>
+                  <option value="Cleaner">Cleaner</option>
+                  <option value="Security Guard">Security Guard</option>
+                  <option value="Waiter">Waiter</option>
+                  <option value="Construction Worker">Construction Worker</option>
+                  <option value="Electrician">Electrician</option>
+                  <option value="Plumber">Plumber</option>
+                  <option value="Mechanic">Mechanic</option>
+                  <option value="Nanny">Nanny</option>
+                </select>
+              </div>
+
+              {/* Additional Options */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Default Salary Range
+                  </label>
+                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                    <option value="1000-1500">1000-1500 AED</option>
+                    <option value="1500-2000">1500-2000 AED</option>
+                    <option value="2000-2500">2000-2500 AED</option>
+                    <option value="2500-3000">2500-3000 AED</option>
+                    <option value="negotiable">Negotiable</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Employment Type
+                  </label>
+                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                    <option value="Full-time">Full-time</option>
+                    <option value="Part-time">Part-time</option>
+                    <option value="Contract">Contract</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setShowBulkCreateModal(false)
+                  // Reset to default
+                  setBulkCreateCountries([{ country: 'UAE', jobCount: 3 }])
+                  setBulkCreateJobType('Cook')
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition-colors duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const totalJobs = bulkCreateCountries.reduce((sum, item) => sum + item.jobCount, 0)
+                  
+                  // In a real app, we would create the bulk drafts here
+                  console.log('Creating bulk drafts:', {
+                    countries: bulkCreateCountries,
+                    jobType: bulkCreateJobType,
+                    totalJobs
+                  })
+                  
+                  setShowBulkCreateModal(false)
+                  
+                  // Show success message (you could add a toast notification here)
+                  alert(`Creating ${totalJobs} ${bulkCreateJobType} job drafts across ${bulkCreateCountries.length} countries`)
+                }}
+                className="px-6 py-2 text-sm font-medium text-white bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
+              >
+                Create {bulkCreateCountries.reduce((sum, item) => sum + item.jobCount, 0)} Drafts
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Preview Modal */}
+      {showPreviewModal && previewDraft && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg w-full max-w-4xl max-h-screen overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Job Preview</h2>
+                <p className="text-sm text-gray-600 mt-1">Preview how this job will appear when published</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowPreviewModal(false)
+                  setPreviewDraft(null)
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Job Preview Content */}
+            <div className="p-6">
+              <div className="bg-gradient-to-br from-primary-50 to-blue-50 rounded-xl p-8 mb-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2">{previewDraft.title}</h1>
+                    <div className="flex items-center text-lg text-gray-700 mb-4">
+                      <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center mr-3">
+                        <span className="text-white font-semibold">
+                          {previewDraft.company?.charAt(0) || 'C'}
+                        </span>
+                      </div>
+                      <span className="font-semibold">{previewDraft.company}</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="inline-flex items-center px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-medium mb-2">
+                      <DollarSign className="w-4 h-4 mr-1" />
+                      {previewDraft.salary_range || 'Negotiable'}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Posted {format(new Date(previewDraft.created_at), 'MMM dd, yyyy')}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="flex items-center text-gray-700">
+                    <MapPin className="w-5 h-5 mr-2 text-primary-600" />
+                    <span>{previewDraft.city || previewDraft.country}</span>
+                    {previewDraft.city && previewDraft.country && (
+                      <span>, {previewDraft.country}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center text-gray-700">
+                    <Calendar className="w-5 h-5 mr-2 text-primary-600" />
+                    <span>{previewDraft.employment_type || 'Full-time'}</span>
+                  </div>
+                  <div className="flex items-center text-gray-700">
+                    <Clock className="w-5 h-5 mr-2 text-primary-600" />
+                    <span>{previewDraft.working_hours || '8 hours/day'}</span>
+                  </div>
+                </div>
+
+                {previewDraft.tags && previewDraft.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {previewDraft.tags.map((tag, index) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-white text-primary-700 border border-primary-200"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Main Content */}
+                <div className="lg:col-span-2 space-y-6">
+                  {previewDraft.description && (
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-3">Job Description</h3>
+                      <div className="prose prose-sm max-w-none text-gray-700">
+                        <p className="whitespace-pre-wrap">{previewDraft.description}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {previewDraft.requirements && Array.isArray(previewDraft.requirements) && previewDraft.requirements.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-3">Requirements</h3>
+                      <ul className="space-y-2">
+                        {previewDraft.requirements.map((req, index) => (
+                          <li key={index} className="flex items-start">
+                            <div className="w-2 h-2 bg-primary-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                            <span className="text-gray-700">{req}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                {/* Sidebar */}
+                <div className="space-y-6">
+                  <div className="bg-gray-50 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Job Details</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <span className="text-sm font-medium text-gray-500">Employment Type</span>
+                        <p className="text-gray-900">{previewDraft.employment_type || 'Full-time'}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-500">Working Hours</span>
+                        <p className="text-gray-900">{previewDraft.working_hours || '8 hours/day'}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-500">Contract Duration</span>
+                        <p className="text-gray-900">{previewDraft.contract_duration || '2 years'}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-500">Accommodation</span>
+                        <p className="text-gray-900">{previewDraft.accommodation || 'Provided'}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-500">Food</span>
+                        <p className="text-gray-900">{previewDraft.food || 'Provided'}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-500">Visa Status</span>
+                        <p className="text-gray-900">{previewDraft.visa_status || 'Company will provide'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {(previewDraft.contact_person || previewDraft.contact_phone || previewDraft.contact_email) && (
+                    <div className="bg-primary-50 rounded-lg p-6">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
+                      <div className="space-y-2">
+                        {previewDraft.contact_person && (
+                          <div className="flex items-center">
+                            <User className="w-4 h-4 mr-2 text-primary-600" />
+                            <span className="text-gray-700">{previewDraft.contact_person}</span>
+                          </div>
+                        )}
+                        {previewDraft.contact_phone && (
+                          <div className="flex items-center">
+                            <Phone className="w-4 h-4 mr-2 text-primary-600" />
+                            <span className="text-gray-700">{previewDraft.contact_phone}</span>
+                          </div>
+                        )}
+                        {previewDraft.contact_email && (
+                          <div className="flex items-center">
+                            <Mail className="w-4 h-4 mr-2 text-primary-600" />
+                            <span className="text-gray-700">{previewDraft.contact_email}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
+              <div className="text-sm text-gray-600">
+                This is how your job posting will appear to candidates
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => {
+                    setShowPreviewModal(false)
+                    setPreviewDraft(null)
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition-colors duration-200"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    handlePublish(previewDraft.id)
+                    setShowPreviewModal(false)
+                    setPreviewDraft(null)
+                  }}
+                  className="px-6 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
+                  disabled={publishMutation.isLoading}
+                >
+                  <Check className="w-4 h-4 mr-1.5" />
+                  Publish Job
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default Drafts

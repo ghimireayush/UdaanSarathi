@@ -1,8 +1,9 @@
 // Constants Service - System constants and enums
 import constantsData from '../data/constants.json'
+import performanceService from './performanceService.js'
 
-// Utility function to simulate API delay
-const delay = (ms = 100) => new Promise(resolve => setTimeout(resolve, ms))
+// Utility function to simulate API delay (reduced for performance)
+const delay = (ms = 20) => new Promise(resolve => setTimeout(resolve, ms))
 
 class ConstantsService {
   /**
@@ -10,8 +11,10 @@ class ConstantsService {
    * @returns {Promise<Object>} Job status constants
    */
   async getJobStatuses() {
-    await delay()
-    return constantsData.jobStatuses
+    return await performanceService.getCachedData('job_statuses', async () => {
+      await delay()
+      return constantsData.jobStatuses
+    }, 'constants')
   }
 
   /**
@@ -19,8 +22,10 @@ class ConstantsService {
    * @returns {Promise<Object>} Application stage constants
    */
   async getApplicationStages() {
-    await delay()
-    return constantsData.applicationStages
+    return await performanceService.getCachedData('application_stages', async () => {
+      await delay()
+      return constantsData.applicationStages
+    }, 'constants')
   }
 
   /**
@@ -28,8 +33,10 @@ class ConstantsService {
    * @returns {Promise<Object>} Interview status constants
    */
   async getInterviewStatuses() {
-    await delay()
-    return constantsData.interviewStatuses
+    return await performanceService.getCachedData('interview_statuses', async () => {
+      await delay()
+      return constantsData.interviewStatuses
+    }, 'constants')
   }
 
   /**
@@ -37,8 +44,10 @@ class ConstantsService {
    * @returns {Promise<Array>} Array of country names
    */
   async getCountries() {
-    await delay()
-    return constantsData.countries
+    return await performanceService.getCachedData('countries', async () => {
+      await delay()
+      return constantsData.countries
+    }, 'constants')
   }
 
   /**
@@ -46,8 +55,10 @@ class ConstantsService {
    * @returns {Promise<Array>} Array of job categories
    */
   async getJobCategories() {
-    await delay()
-    return constantsData.jobCategories
+    return await performanceService.getCachedData('job_categories', async () => {
+      await delay()
+      return constantsData.jobCategories
+    }, 'constants')
   }
 
   /**
@@ -55,8 +66,10 @@ class ConstantsService {
    * @returns {Promise<Array>} Array of interview types
    */
   async getInterviewTypes() {
-    await delay()
-    return constantsData.interviewTypes
+    return await performanceService.getCachedData('interview_types', async () => {
+      await delay()
+      return constantsData.interviewTypes
+    }, 'constants')
   }
 
   /**
@@ -64,8 +77,10 @@ class ConstantsService {
    * @returns {Promise<Array>} Array of education levels
    */
   async getEducationLevels() {
-    await delay()
-    return constantsData.educationLevels
+    return await performanceService.getCachedData('education_levels', async () => {
+      await delay()
+      return constantsData.educationLevels
+    }, 'constants')
   }
 
   /**
@@ -73,8 +88,10 @@ class ConstantsService {
    * @returns {Promise<Array>} Array of gender options
    */
   async getGenders() {
-    await delay()
-    return constantsData.genders
+    return await performanceService.getCachedData('genders', async () => {
+      await delay()
+      return constantsData.genders
+    }, 'constants')
   }
 
   /**
@@ -82,8 +99,10 @@ class ConstantsService {
    * @returns {Promise<Object>} Priority level constants
    */
   async getPriorities() {
-    await delay()
-    return constantsData.priorities
+    return await performanceService.getCachedData('priorities', async () => {
+      await delay()
+      return constantsData.priorities
+    }, 'constants')
   }
 
   /**
@@ -91,8 +110,10 @@ class ConstantsService {
    * @returns {Promise<Array>} Array of currency codes
    */
   async getCurrencies() {
-    await delay()
-    return constantsData.currencies
+    return await performanceService.getCachedData('currencies', async () => {
+      await delay()
+      return constantsData.currencies
+    }, 'constants')
   }
 
   /**
@@ -100,8 +121,10 @@ class ConstantsService {
    * @returns {Promise<Object>} All constants data
    */
   async getAllConstants() {
-    await delay()
-    return constantsData
+    return await performanceService.getCachedData('all_constants', async () => {
+      await delay()
+      return constantsData
+    }, 'constants')
   }
 
   /**

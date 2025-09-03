@@ -815,13 +815,7 @@ const AISchedulingAssistant = ({
           cursor: not-allowed;
         }
       `}</style>
-        </div>
-    )
-}
-
-export default AISchedulingAssistant
- 
-           {autoScheduleMode && (
+            {autoScheduleMode && (
                 <div className="auto-schedule-panel">
                     <h3>Auto-Schedule Mode</h3>
                     <p>AI will automatically schedule meetings based on optimal time slots.</p>
@@ -834,3 +828,8 @@ export default AISchedulingAssistant
                     </button>
                 </div>
             )}
+        </div>
+    )
+}
+
+export default AISchedulingAssistant

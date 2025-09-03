@@ -12,12 +12,14 @@ import Workflow from './pages/Workflow'
 import Drafts from './pages/Drafts'
 import AgencySettings from './pages/AgencySettings'
 import Login from './pages/Login'
+import AuditLogPage from './pages/AuditLog'
 
 import MVPTestingDashboard from './components/MVPTestingDashboard.jsx'
 import PrivateRoute from './components/PrivateRoute'
 import ErrorBoundary from './components/ErrorBoundary'
 import ToastProvider from './components/ToastProvider'
 import ConfirmProvider from './components/ConfirmProvider'
+import { NotificationProvider } from './contexts/NotificationContext'
 import { PERMISSIONS } from './services/authService.js'
 import i18nService from './services/i18nService'
 import accessibilityService from './services/accessibilityService'
@@ -35,8 +37,9 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <ToastProvider>
-        <ConfirmProvider>
+      <NotificationProvider>
+        <ToastProvider>
+          <ConfirmProvider>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="*" element={
@@ -52,14 +55,16 @@ function App() {
                   <Route path="/workflow" element={<PrivateRoute requiredPermission={PERMISSIONS.VIEW_WORKFLOW}><Workflow /></PrivateRoute>} />
                   <Route path="/drafts" element={<PrivateRoute requiredPermissions={[PERMISSIONS.CREATE_JOB, PERMISSIONS.EDIT_JOB]}><Drafts /></PrivateRoute>} />
                   <Route path="/settings" element={<PrivateRoute requiredPermission={PERMISSIONS.MANAGE_SETTINGS}><AgencySettings /></PrivateRoute>} />
+                  <Route path="/auditlog" element={<PrivateRoute requiredPermission={PERMISSIONS.VIEW_AUDIT_LOGS}><AuditLogPage /></PrivateRoute>} />
 
                   <Route path="/mvp-testing" element={<PrivateRoute requiredPermission={PERMISSIONS.MANAGE_SETTINGS}><MVPTestingDashboard /></PrivateRoute>} />
                 </Routes>
               </Layout>
             } />
           </Routes>
-        </ConfirmProvider>
-      </ToastProvider>
+          </ConfirmProvider>
+        </ToastProvider>
+      </NotificationProvider>
     </ErrorBoundary>
   )
 }

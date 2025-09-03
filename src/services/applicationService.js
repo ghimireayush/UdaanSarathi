@@ -4,12 +4,13 @@ import candidateService from './candidateService.js'
 import jobService from './jobService.js'
 import constantsService from './constantsService.js'
 import performanceService from './performanceService.js'
+import { handleServiceError } from '../utils/errorHandler.js'
 
 // Utility function to simulate API delay (reduced for performance)
-const delay = (ms = 100) => new Promise(resolve => setTimeout(resolve, ms))
+const delay = (ms = 50) => new Promise(resolve => setTimeout(resolve, ms))
 
-// Error simulation (1% chance)
-const shouldSimulateError = () => Math.random() < 0.01
+// Error simulation REMOVED for 100% reliability
+const shouldSimulateError = () => false // Always return false for 100% reliability
 
 // Deep clone helper
 const deepClone = (obj) => JSON.parse(JSON.stringify(obj))
@@ -23,74 +24,76 @@ class ApplicationService {
    * @returns {Promise<Array>} Array of applications
    */
   async getApplications(filters = {}) {
-    await delay()
-    if (shouldSimulateError()) {
-      throw new Error('Failed to fetch applications')
-    }
+    return handleServiceError(async () => {
+      await delay()
+      if (shouldSimulateError()) {
+        throw new Error('Failed to fetch applications')
+      }
 
-    let filteredApplications = [...applicationsCache]
+      let filteredApplications = [...applicationsCache]
 
-    // Apply filters
-    if (filters.stage && filters.stage !== 'all') {
-      filteredApplications = filteredApplications.filter(app => app.stage === filters.stage)
-    }
+      // Apply filters
+      if (filters.stage && filters.stage !== 'all') {
+        filteredApplications = filteredApplications.filter(app => app.stage === filters.stage)
+      }
 
-    if (filters.job_id) {
-      filteredApplications = filteredApplications.filter(app => app.job_id === filters.job_id)
-    }
+      if (filters.job_id) {
+        filteredApplications = filteredApplications.filter(app => app.job_id === filters.job_id)
+      }
 
-    if (filters.candidate_id) {
-      filteredApplications = filteredApplications.filter(app => app.candidate_id === filters.candidate_id)
-    }
+      if (filters.candidate_id) {
+        filteredApplications = filteredApplications.filter(app => app.candidate_id === filters.candidate_id)
+      }
 
-    if (filters.status && filters.status !== 'all') {
-      filteredApplications = filteredApplications.filter(app => app.status === filters.status)
-    }
+      if (filters.status && filters.status !== 'all') {
+        filteredApplications = filteredApplications.filter(app => app.status === filters.status)
+      }
 
-    if (filters.priority_min) {
-      filteredApplications = filteredApplications.filter(app => app.priority_score >= filters.priority_min)
-    }
+      if (filters.priority_min) {
+        filteredApplications = filteredApplications.filter(app => app.priority_score >= filters.priority_min)
+      }
 
-    if (filters.search) {
-      // We'll need to get candidate and job data for search
-      const candidates = await candidateService.getCandidates()
-      const jobs = await jobService.getJobs()
-      
-      const searchTerm = filters.search.toLowerCase()
-      filteredApplications = filteredApplications.filter(app => {
-        const candidate = candidates.find(c => c.id === app.candidate_id)
-        const job = jobs.find(j => j.id === app.job_id)
+      if (filters.search) {
+        // We'll need to get candidate and job data for search
+        const candidates = await candidateService.getCandidates()
+        const jobs = await jobService.getJobs()
         
-        return (candidate && (
-          candidate.name.toLowerCase().includes(searchTerm) ||
-          candidate.phone.includes(searchTerm) ||
-          candidate.email.toLowerCase().includes(searchTerm)
-        )) || (job && (
-          job.title.toLowerCase().includes(searchTerm) ||
-          job.company.toLowerCase().includes(searchTerm)
-        ))
-      })
-    }
+        const searchTerm = filters.search.toLowerCase()
+        filteredApplications = filteredApplications.filter(app => {
+          const candidate = candidates.find(c => c.id === app.candidate_id)
+          const job = jobs.find(j => j.id === app.job_id)
+          
+          return (candidate && (
+            candidate.name.toLowerCase().includes(searchTerm) ||
+            candidate.phone.includes(searchTerm) ||
+            candidate.email.toLowerCase().includes(searchTerm)
+          )) || (job && (
+            job.title.toLowerCase().includes(searchTerm) ||
+            job.company.toLowerCase().includes(searchTerm)
+          ))
+        })
+      }
 
-    // Apply sorting
-    if (filters.sortBy) {
-      filteredApplications.sort((a, b) => {
-        switch (filters.sortBy) {
-          case 'newest':
-            return new Date(b.applied_at) - new Date(a.applied_at)
-          case 'oldest':
-            return new Date(a.applied_at) - new Date(b.applied_at)
-          case 'priority_score':
-            return b.priority_score - a.priority_score
-          case 'stage':
-            return a.stage.localeCompare(b.stage)
-          default:
-            return 0
-        }
-      })
-    }
+      // Apply sorting
+      if (filters.sortBy) {
+        filteredApplications.sort((a, b) => {
+          switch (filters.sortBy) {
+            case 'newest':
+              return new Date(b.applied_at) - new Date(a.applied_at)
+            case 'oldest':
+              return new Date(a.applied_at) - new Date(b.applied_at)
+            case 'priority_score':
+              return b.priority_score - a.priority_score
+            case 'stage':
+              return a.stage.localeCompare(b.stage)
+            default:
+              return 0
+          }
+        })
+      }
 
-    return filteredApplications
+      return filteredApplications
+    }, 3, 500);
   }
 
   /**
@@ -102,10 +105,10 @@ class ApplicationService {
     // Use paginated method for better performance
     if (filters.page || filters.limit) {
       const result = await this.getApplicationsPaginated(filters)
-      return result.data || result
+      return result
     }
     
-    await delay(400)
+    await delay(50)
     const applications = await this.getApplications(filters)
     const candidates = await candidateService.getCandidates()
     const jobs = await jobService.getJobs()
@@ -123,13 +126,13 @@ class ApplicationService {
    * @returns {Promise<Object|null>} Application object or null if not found
    */
   async getApplicationById(applicationId) {
-    await delay(200)
-    if (shouldSimulateError()) {
-      throw new Error('Failed to fetch application')
-    }
+    return handleServiceError(async () => {
+      await delay(30)
+      // Removed random error simulation for 100% reliability
 
-    const application = applicationsCache.find(app => app.id === applicationId)
-    return application ? deepClone(application) : null
+      const application = applicationsCache.find(app => app.id === applicationId)
+      return application ? deepClone(application) : null
+    }, 3, 500);
   }
 
   /**
@@ -138,27 +141,27 @@ class ApplicationService {
    * @returns {Promise<Object>} Created application
    */
   async createApplication(applicationData) {
-    await delay(500)
-    if (shouldSimulateError()) {
-      throw new Error('Failed to create application')
-    }
+    return handleServiceError(async () => {
+      await delay(80)
+      // Removed random error simulation for 100% reliability
 
-    const constants = await constantsService.getApplicationStages()
-    const newApplication = {
-      id: `app_${Date.now()}`,
-      ...applicationData,
-      stage: constants.APPLIED,
-      applied_at: new Date().toISOString(),
-      shortlisted_at: null,
-      interviewed_at: null,
-      decision_at: null,
-      status: 'active',
-      notes: '',
-      recruiter_notes: ''
-    }
+      const constants = await constantsService.getApplicationStages()
+      const newApplication = {
+        id: `app_${Date.now()}`,
+        ...applicationData,
+        stage: constants.APPLIED,
+        applied_at: new Date().toISOString(),
+        shortlisted_at: null,
+        interviewed_at: null,
+        decision_at: null,
+        status: 'active',
+        notes: '',
+        recruiter_notes: ''
+      }
 
-    applicationsCache.push(newApplication)
-    return deepClone(newApplication)
+      applicationsCache.push(newApplication)
+      return deepClone(newApplication)
+    }, 3, 500);
   }
 
   /**
@@ -168,10 +171,8 @@ class ApplicationService {
    * @returns {Promise<Object|null>} Updated application or null if not found
    */
   async updateApplication(applicationId, updateData) {
-    await delay(400)
-    if (shouldSimulateError()) {
-      throw new Error('Failed to update application')
-    }
+    await delay(50)
+    // Removed random error simulation for 100% reliability
 
     const applicationIndex = applicationsCache.findIndex(app => app.id === applicationId)
     if (applicationIndex === -1) {
@@ -193,10 +194,8 @@ class ApplicationService {
    * @returns {Promise<boolean>} Success status
    */
   async deleteApplication(applicationId) {
-    await delay(300)
-    if (shouldSimulateError()) {
-      throw new Error('Failed to delete application')
-    }
+    await delay(40)
+    // Removed random error simulation for 100% reliability
 
     const applicationIndex = applicationsCache.findIndex(app => app.id === applicationId)
     if (applicationIndex === -1) {
@@ -293,7 +292,7 @@ class ApplicationService {
    * @returns {Promise<Array>} Array of applications for the job
    */
   async getApplicationsByJobId(jobId) {
-    await delay(200)
+    await delay(30)
     return applicationsCache.filter(app => app.job_id === jobId)
   }
 
@@ -303,7 +302,7 @@ class ApplicationService {
    * @returns {Promise<Array>} Array of applications by the candidate
    */
   async getApplicationsByCandidateId(candidateId) {
-    await delay(200)
+    await delay(30)
     return applicationsCache.filter(app => app.candidate_id === candidateId)
   }
 
@@ -313,7 +312,7 @@ class ApplicationService {
    * @returns {Promise<Array>} Array of applications in specified stage
    */
   async getApplicationsByStage(stage) {
-    await delay(200)
+    await delay(30)
     return applicationsCache.filter(app => app.stage === stage)
   }
 
@@ -322,7 +321,7 @@ class ApplicationService {
    * @returns {Promise<Object>} Application statistics
    */
   async getApplicationStatistics() {
-    await delay(200)
+    await delay(30)
     const stats = {
       total: applicationsCache.length,
       byStage: {},
@@ -368,7 +367,7 @@ class ApplicationService {
    * @returns {Promise<Array>} Array of recent applications
    */
   async getRecentApplications(days = 7) {
-    await delay(200)
+    await delay(30)
     const cutoffDate = new Date()
     cutoffDate.setDate(cutoffDate.getDate() - days)
     
@@ -381,7 +380,7 @@ class ApplicationService {
    * @returns {Promise<Array>} Array of high-priority applications
    */
   async getTopPriorityApplications(limit = 10) {
-    await delay(200)
+    await delay(30)
     return applicationsCache
       .sort((a, b) => b.priority_score - a.priority_score)
       .slice(0, limit)
@@ -412,7 +411,7 @@ class ApplicationService {
    * @returns {Promise<Array>} Array of applications that need attention
    */
   async getApplicationsRequiringAction() {
-    await delay(200)
+    await delay(30)
     const constants = await constantsService.getApplicationStages()
     
     // Applications that have been in applied stage for more than 3 days
@@ -430,7 +429,7 @@ class ApplicationService {
    * @returns {Promise<Array>} Array of duplicate applications
    */
   async getDuplicateApplications() {
-    await delay(200)
+    await delay(30)
     const seen = new Set()
     const duplicates = []
     
@@ -522,10 +521,8 @@ class ApplicationService {
    * @returns {Promise<boolean>} Success status
    */
   async attachDocument(candidateId, document) {
-    await delay(300)
-    if (shouldSimulateError()) {
-      throw new Error('Failed to attach document')
-    }
+    await delay(40)
+    // Removed random error simulation for 100% reliability
 
     const application = applicationsCache.find(app => app.candidate_id === candidateId)
     if (!application) {
@@ -561,7 +558,7 @@ class ApplicationService {
       search = '',
       stage = '',
       country = '',
-      jobId = '',
+      jobId = '', // This is the parameter name from the frontend
       sortBy = 'applied_at',
       sortOrder = 'desc'
     } = options
@@ -600,6 +597,7 @@ class ApplicationService {
           filteredApplications = filteredApplications.filter(app => app.stage === stage)
         }
         
+        // Fix the parameter name mismatch - frontend sends jobId, but we need to check app.job_id
         if (jobId) {
           filteredApplications = filteredApplications.filter(app => app.job_id === jobId)
         }
@@ -699,7 +697,7 @@ class ApplicationService {
     const cacheKey = 'application_statistics'
     
     return await performanceService.getCachedData(cacheKey, async () => {
-      await delay(50)
+      await delay(30) // Reduced delay for performance
       
       const applications = [...applicationsCache]
       const stages = await constantsService.getApplicationStages()
@@ -734,7 +732,7 @@ class ApplicationService {
       }
       
       return stats
-    })
+    }, 'analytics') // Use analytics cache type
   }
 
   /**

@@ -4,6 +4,7 @@ import candidateService from './candidateService.js'
 import jobService from './jobService.js'
 import applicationService from './applicationService.js'
 import constantsService from './constantsService.js'
+import { handleServiceError } from '../utils/errorHandler.js'
 
 // Utility function to simulate API delay
 const delay = (ms = 300) => new Promise(resolve => setTimeout(resolve, ms))
@@ -18,78 +19,89 @@ let interviewsCache = deepClone(interviewsData)
 
 class InterviewService {
   /**
+   * Get all interviews (alias for getInterviews)
+   * @param {Object} filters - Filter options
+   * @returns {Promise<Array>} Array of interviews
+   */
+  async getAllInterviews(filters = {}) {
+    return this.getInterviews(filters)
+  }
+
+  /**
    * Get all interviews with optional filtering
    * @param {Object} filters - Filter options
    * @returns {Promise<Array>} Array of interviews
    */
   async getInterviews(filters = {}) {
-    await delay()
-    if (shouldSimulateError()) {
-      throw new Error('Failed to fetch interviews')
-    }
+    return handleServiceError(async () => {
+      await delay()
+      if (shouldSimulateError()) {
+        throw new Error('Failed to fetch interviews')
+      }
 
-    let filteredInterviews = [...interviewsCache]
+      let filteredInterviews = [...interviewsCache]
 
-    // Apply filters
-    if (filters.status && filters.status !== 'all') {
-      filteredInterviews = filteredInterviews.filter(interview => interview.status === filters.status)
-    }
+      // Apply filters
+      if (filters.status && filters.status !== 'all') {
+        filteredInterviews = filteredInterviews.filter(interview => interview.status === filters.status)
+      }
 
-    if (filters.type && filters.type !== 'all') {
-      filteredInterviews = filteredInterviews.filter(interview => interview.type === filters.type)
-    }
+      if (filters.type && filters.type !== 'all') {
+        filteredInterviews = filteredInterviews.filter(interview => interview.type === filters.type)
+      }
 
-    if (filters.job_id) {
-      filteredInterviews = filteredInterviews.filter(interview => interview.job_id === filters.job_id)
-    }
+      if (filters.job_id) {
+        filteredInterviews = filteredInterviews.filter(interview => interview.job_id === filters.job_id)
+      }
 
-    if (filters.candidate_id) {
-      filteredInterviews = filteredInterviews.filter(interview => interview.candidate_id === filters.candidate_id)
-    }
+      if (filters.candidate_id) {
+        filteredInterviews = filteredInterviews.filter(interview => interview.candidate_id === filters.candidate_id)
+      }
 
-    if (filters.interviewer) {
-      filteredInterviews = filteredInterviews.filter(interview => 
-        interview.interviewer.toLowerCase().includes(filters.interviewer.toLowerCase())
-      )
-    }
+      if (filters.interviewer) {
+        filteredInterviews = filteredInterviews.filter(interview => 
+          interview.interviewer.toLowerCase().includes(filters.interviewer.toLowerCase())
+        )
+      }
 
-    if (filters.date) {
-      const filterDate = new Date(filters.date)
-      filteredInterviews = filteredInterviews.filter(interview => {
-        const interviewDate = new Date(interview.scheduled_at)
-        return interviewDate.toDateString() === filterDate.toDateString()
-      })
-    }
+      if (filters.date) {
+        const filterDate = new Date(filters.date)
+        filteredInterviews = filteredInterviews.filter(interview => {
+          const interviewDate = new Date(interview.scheduled_at)
+          return interviewDate.toDateString() === filterDate.toDateString()
+        })
+      }
 
-    if (filters.dateRange) {
-      const { start, end } = filters.dateRange
-      filteredInterviews = filteredInterviews.filter(interview => {
-        const interviewDate = new Date(interview.scheduled_at)
-        return interviewDate >= new Date(start) && interviewDate <= new Date(end)
-      })
-    }
+      if (filters.dateRange) {
+        const { start, end } = filters.dateRange
+        filteredInterviews = filteredInterviews.filter(interview => {
+          const interviewDate = new Date(interview.scheduled_at)
+          return interviewDate >= new Date(start) && interviewDate <= new Date(end)
+        })
+      }
 
-    // Apply sorting
-    if (filters.sortBy) {
-      filteredInterviews.sort((a, b) => {
-        switch (filters.sortBy) {
-          case 'newest':
-            return new Date(b.scheduled_at) - new Date(a.scheduled_at)
-          case 'oldest':
-            return new Date(a.scheduled_at) - new Date(b.scheduled_at)
-          case 'interviewer':
-            return a.interviewer.localeCompare(b.interviewer)
-          case 'duration':
-            return b.duration - a.duration
-          case 'status':
-            return a.status.localeCompare(b.status)
-          default:
-            return 0
-        }
-      })
-    }
+      // Apply sorting
+      if (filters.sortBy) {
+        filteredInterviews.sort((a, b) => {
+          switch (filters.sortBy) {
+            case 'newest':
+              return new Date(b.scheduled_at) - new Date(a.scheduled_at)
+            case 'oldest':
+              return new Date(a.scheduled_at) - new Date(b.scheduled_at)
+            case 'interviewer':
+              return a.interviewer.localeCompare(b.interviewer)
+            case 'duration':
+              return b.duration - a.duration
+            case 'status':
+              return a.status.localeCompare(b.status)
+            default:
+              return 0
+          }
+        })
+      }
 
-    return filteredInterviews
+      return filteredInterviews
+    }, 3, 500);
   }
 
   /**
@@ -116,13 +128,15 @@ class InterviewService {
    * @returns {Promise<Object|null>} Interview object or null if not found
    */
   async getInterviewById(interviewId) {
-    await delay(200)
-    if (shouldSimulateError()) {
-      throw new Error('Failed to fetch interview')
-    }
+    return handleServiceError(async () => {
+      await delay(200)
+      if (shouldSimulateError()) {
+        throw new Error('Failed to fetch interview')
+      }
 
-    const interview = interviewsCache.find(interview => interview.id === interviewId)
-    return interview ? deepClone(interview) : null
+      const interview = interviewsCache.find(interview => interview.id === interviewId)
+      return interview ? deepClone(interview) : null
+    }, 3, 500);
   }
 
   /**
@@ -131,35 +145,37 @@ class InterviewService {
    * @returns {Promise<Object>} Created interview
    */
   async scheduleInterview(interviewData) {
-    await delay(500)
-    if (shouldSimulateError()) {
-      throw new Error('Failed to schedule interview')
-    }
+    return handleServiceError(async () => {
+      await delay(500)
+      if (shouldSimulateError()) {
+        throw new Error('Failed to schedule interview')
+      }
 
-    const constants = await constantsService.getInterviewStatuses()
-    const newInterview = {
-      id: `interview_${Date.now()}`,
-      ...interviewData,
-      status: constants.SCHEDULED,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      feedback: null,
-      score: null,
-      recommendation: null
-    }
+      const constants = await constantsService.getInterviewStatuses()
+      const newInterview = {
+        id: `interview_${Date.now()}`,
+        ...interviewData,
+        status: constants.SCHEDULED,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        feedback: null,
+        score: null,
+        recommendation: null
+      }
 
-    interviewsCache.push(newInterview)
+      interviewsCache.push(newInterview)
 
-    // Update candidate stage to scheduled
-    if (interviewData.candidate_id) {
-      const appConstants = await constantsService.getApplicationStages()
-      await candidateService.updateCandidateStage(
-        interviewData.candidate_id, 
-        appConstants.SCHEDULED
-      )
-    }
+      // Update candidate stage to scheduled
+      if (interviewData.candidate_id) {
+        const appConstants = await constantsService.getApplicationStages()
+        await candidateService.updateCandidateStage(
+          interviewData.candidate_id, 
+          appConstants.SCHEDULED
+        )
+      }
 
-    return deepClone(newInterview)
+      return deepClone(newInterview)
+    }, 3, 500);
   }
 
   /**
@@ -336,6 +352,65 @@ class InterviewService {
     return interviewsCache.filter(interview => 
       interview.interviewer.toLowerCase().includes(interviewer.toLowerCase())
     )
+  }
+
+  /**
+   * Check for double booking conflicts
+   * @param {string} candidateId - Candidate ID
+   * @param {string} proposedDateTime - Proposed interview date/time
+   * @param {number} duration - Interview duration in minutes
+   * @param {string} excludeInterviewId - Interview ID to exclude from conflict check
+   * @returns {Promise<Array>} Array of conflicting interviews
+   */
+  async checkDoubleBooking(candidateId, proposedDateTime, duration = 60, excludeInterviewId = null) {
+    return handleServiceError(async () => {
+      await delay(100)
+      
+      const proposedStart = new Date(proposedDateTime)
+      const proposedEnd = new Date(proposedStart.getTime() + (duration * 60 * 1000))
+      
+      const conflicts = interviewsCache.filter(interview => {
+        // Skip if it's the same interview being updated
+        if (excludeInterviewId && interview.id === excludeInterviewId) return false
+        
+        // Only check for the same candidate
+        if (interview.candidate_id !== candidateId) return false
+        
+        // Skip cancelled interviews
+        if (interview.status === 'cancelled') return false
+        
+        const existingStart = new Date(interview.scheduled_at)
+        const existingEnd = new Date(existingStart.getTime() + ((interview.duration || 60) * 60 * 1000))
+        
+        // Check for time overlap
+        return (proposedStart < existingEnd && proposedEnd > existingStart)
+      })
+      
+      return conflicts
+    })
+  }
+
+  /**
+   * Schedule interview with double-booking prevention
+   * @param {Object} interviewData - Interview data
+   * @returns {Promise<Object>} Created interview
+   */
+  async scheduleInterviewSafe(interviewData) {
+    return handleServiceError(async () => {
+      // Check for double booking first
+      const conflicts = await this.checkDoubleBooking(
+        interviewData.candidate_id,
+        interviewData.scheduled_at,
+        interviewData.duration || 60
+      )
+      
+      if (conflicts.length > 0) {
+        throw new Error(`Double booking detected. Candidate already has an interview scheduled at ${conflicts[0].scheduled_at}`)
+      }
+      
+      // Proceed with scheduling if no conflicts
+      return this.scheduleInterview(interviewData)
+    })
   }
 
   /**

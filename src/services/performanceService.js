@@ -2,19 +2,32 @@
 class PerformanceService {
   constructor() {
     this.cache = new Map()
-    this.cacheTimeout = 5 * 60 * 1000 // 5 minutes
+    // Implemented caching with specified TTLs:
+    // - Constants: 1 hour (3600000ms)
+    // - Analytics: 30 seconds (30000ms) 
+    // - Jobs: 5 minutes (300000ms)
+    // - Search: 2 minutes (120000ms)
+    this.cacheTimeouts = {
+      'constants': 3600000,    // 1 hour
+      'analytics': 30000,      // 30 seconds
+      'jobs': 300000,          // 5 minutes
+      'search': 120000,        // 2 minutes
+      'default': 300000        // 5 minutes (default)
+    }
   }
 
   /**
    * Get cached data or fetch new data
    * @param {string} key - Cache key
    * @param {Function} fetchFn - Function to fetch data if not cached
+   * @param {string} cacheType - Type of cache (constants, analytics, jobs, search)
    * @returns {Promise<any>} Cached or fresh data
    */
-  async getCachedData(key, fetchFn) {
+  async getCachedData(key, fetchFn, cacheType = 'default') {
     const cached = this.cache.get(key)
+    const timeout = this.cacheTimeouts[cacheType] || this.cacheTimeouts.default
     
-    if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+    if (cached && Date.now() - cached.timestamp < timeout) {
       return cached.data
     }
     
@@ -195,6 +208,8 @@ class PerformanceService {
    */
   async getPaginatedData({ page = 1, limit = 50, search = '', sortBy = 'id', sortOrder = 'asc' }, fetchFn) {
     const cacheKey = `paginated_${page}_${limit}_${search}_${sortBy}_${sortOrder}`
+    // Use search cache type for paginated data with search
+    const cacheType = search ? 'search' : 'default'
     
     return this.measurePerformance(`Pagination Load (Page ${page})`, async () => {
       return this.getCachedData(cacheKey, () => fetchFn({
@@ -204,7 +219,7 @@ class PerformanceService {
         sortBy,
         sortOrder,
         offset: (page - 1) * limit
-      }))
+      }), cacheType)
     })
   }
 

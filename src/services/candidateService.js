@@ -1,6 +1,7 @@
 // Candidate Service - Handles all candidate-related operations
 import candidatesData from '../data/candidates.json'
 import constantsService from './constantsService.js'
+import { handleServiceError } from '../utils/errorHandler.js'
 
 // Utility function to simulate API delay
 const delay = (ms = 300) => new Promise(resolve => setTimeout(resolve, ms))
@@ -34,71 +35,73 @@ class CandidateService {
    * @returns {Promise<Array>} Array of candidates
    */
   async getCandidates(filters = {}) {
-    await delay()
-    if (shouldSimulateError()) {
-      throw new Error('Failed to fetch candidates')
-    }
+    return handleServiceError(async () => {
+      await delay()
+      if (shouldSimulateError()) {
+        throw new Error('Failed to fetch candidates')
+      }
 
-    let filteredCandidates = [...candidatesCache]
+      let filteredCandidates = [...candidatesCache]
 
-    // Apply filters
-    if (filters.stage && filters.stage !== 'all') {
-      filteredCandidates = filteredCandidates.filter(candidate => candidate.stage === filters.stage)
-    }
+      // Apply filters
+      if (filters.stage && filters.stage !== 'all') {
+        filteredCandidates = filteredCandidates.filter(candidate => candidate.stage === filters.stage)
+      }
 
-    if (filters.gender && filters.gender !== 'all') {
-      filteredCandidates = filteredCandidates.filter(candidate => candidate.gender === filters.gender)
-    }
+      if (filters.gender && filters.gender !== 'all') {
+        filteredCandidates = filteredCandidates.filter(candidate => candidate.gender === filters.gender)
+      }
 
-    if (filters.education && filters.education !== 'all') {
-      filteredCandidates = filteredCandidates.filter(candidate => candidate.education === filters.education)
-    }
+      if (filters.education && filters.education !== 'all') {
+        filteredCandidates = filteredCandidates.filter(candidate => candidate.education === filters.education)
+      }
 
-    if (filters.experience && filters.experience !== 'all') {
-      filteredCandidates = filteredCandidates.filter(candidate => {
-        const exp = parseInt(candidate.experience)
-        switch (filters.experience) {
-          case '0-1': return exp <= 1
-          case '1-3': return exp > 1 && exp <= 3
-          case '3-5': return exp > 3 && exp <= 5
-          case '5+': return exp > 5
-          default: return true
-        }
-      })
-    }
+      if (filters.experience && filters.experience !== 'all') {
+        filteredCandidates = filteredCandidates.filter(candidate => {
+          const exp = parseInt(candidate.experience)
+          switch (filters.experience) {
+            case '0-1': return exp <= 1
+            case '1-3': return exp > 1 && exp <= 3
+            case '3-5': return exp > 3 && exp <= 5
+            case '5+': return exp > 5
+            default: return true
+          }
+        })
+      }
 
-    if (filters.search) {
-      const searchTerm = filters.search.toLowerCase()
-      filteredCandidates = filteredCandidates.filter(candidate => 
-        candidate.name.toLowerCase().includes(searchTerm) ||
-        candidate.phone.includes(searchTerm) ||
-        candidate.email.toLowerCase().includes(searchTerm) ||
-        candidate.passport_number.toLowerCase().includes(searchTerm) ||
-        candidate.skills.some(skill => skill.toLowerCase().includes(searchTerm))
-      )
-    }
+      if (filters.search) {
+        const searchTerm = filters.search.toLowerCase()
+        filteredCandidates = filteredCandidates.filter(candidate => 
+          candidate.name.toLowerCase().includes(searchTerm) ||
+          candidate.phone.includes(searchTerm) ||
+          candidate.email.toLowerCase().includes(searchTerm) ||
+          candidate.passport_number.toLowerCase().includes(searchTerm) ||
+          candidate.skills.some(skill => skill.toLowerCase().includes(searchTerm))
+        )
+      }
 
-    // Apply sorting
-    if (filters.sortBy) {
-      filteredCandidates.sort((a, b) => {
-        switch (filters.sortBy) {
-          case 'name':
-            return a.name.localeCompare(b.name)
-          case 'age':
-            return a.age - b.age
-          case 'priority_score':
-            return b.priority_score - a.priority_score
-          case 'applied_at':
-            return new Date(b.applied_at) - new Date(a.applied_at)
-          case 'experience':
-            return parseInt(b.experience) - parseInt(a.experience)
-          default:
-            return 0
-        }
-      })
-    }
+      // Apply sorting
+      if (filters.sortBy) {
+        filteredCandidates.sort((a, b) => {
+          switch (filters.sortBy) {
+            case 'name':
+              return a.name.localeCompare(b.name)
+            case 'age':
+              return a.age - b.age
+            case 'priority_score':
+              return b.priority_score - a.priority_score
+            case 'applied_at':
+              return new Date(b.applied_at) - new Date(a.applied_at)
+            case 'experience':
+              return parseInt(b.experience) - parseInt(a.experience)
+            default:
+              return 0
+          }
+        })
+      }
 
-    return filteredCandidates
+      return filteredCandidates
+    }, 3, 500);
   }
 
   /**
@@ -107,13 +110,15 @@ class CandidateService {
    * @returns {Promise<Object|null>} Candidate object or null if not found
    */
   async getCandidateById(candidateId) {
-    await delay(200)
-    if (shouldSimulateError()) {
-      throw new Error('Failed to fetch candidate')
-    }
+    return handleServiceError(async () => {
+      await delay(200)
+      if (shouldSimulateError()) {
+        throw new Error('Failed to fetch candidate')
+      }
 
-    const candidate = candidatesCache.find(candidate => candidate.id === candidateId)
-    return candidate ? deepClone(candidate) : null
+      const candidate = candidatesCache.find(candidate => candidate.id === candidateId)
+      return candidate ? deepClone(candidate) : null
+    }, 3, 500);
   }
 
   /**
@@ -122,24 +127,26 @@ class CandidateService {
    * @returns {Promise<Object>} Created candidate
    */
   async createCandidate(candidateData) {
-    await delay(500)
-    if (shouldSimulateError()) {
-      throw new Error('Failed to create candidate')
-    }
+    return handleServiceError(async () => {
+      await delay(500)
+      if (shouldSimulateError()) {
+        throw new Error('Failed to create candidate')
+      }
 
-    const constants = await constantsService.getApplicationStages()
-    const newCandidate = {
-      id: `candidate_${Date.now()}`,
-      ...candidateData,
-      stage: constants.APPLIED,
-      priority_score: 0,
-      applied_at: new Date().toISOString(),
-      shortlisted_at: null,
-      applied_jobs: candidateData.applied_jobs || []
-    }
+      const constants = await constantsService.getApplicationStages()
+      const newCandidate = {
+        id: `candidate_${Date.now()}`,
+        ...candidateData,
+        stage: constants.APPLIED,
+        priority_score: 0,
+        applied_at: new Date().toISOString(),
+        shortlisted_at: null,
+        applied_jobs: candidateData.applied_jobs || []
+      }
 
-    candidatesCache.push(newCandidate)
-    return deepClone(newCandidate)
+      candidatesCache.push(newCandidate)
+      return deepClone(newCandidate)
+    }, 3, 500);
   }
 
   /**
