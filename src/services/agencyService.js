@@ -1,5 +1,6 @@
 // Agency Service - Handles agency settings and profile operations
 import agencyData from '../data/agency.json'
+import auditService from './auditService.js'
 
 // Utility function to simulate API delay
 const delay = (ms = 300) => new Promise(resolve => setTimeout(resolve, ms))
@@ -29,21 +30,37 @@ class AgencyService {
   /**
    * Update agency profile
    * @param {Object} updateData - Data to update
+   * @param {Object} auditInfo - Audit information (user, section, etc.)
    * @returns {Promise<Object>} Updated agency profile
    */
-  async updateAgencyProfile(updateData) {
+  async updateAgencyProfile(updateData, auditInfo = {}) {
     await delay(500)
     if (shouldSimulateError()) {
       throw new Error('Failed to update agency profile')
     }
 
+    const oldData = deepClone(agencyCache)
+    
     agencyCache = {
       ...agencyCache,
       ...updateData,
       updated_at: new Date().toISOString()
     }
 
-    return deepClone(agencyCache)
+    const newData = deepClone(agencyCache)
+
+    // Log the audit event
+    if (auditInfo.user) {
+      await auditService.logAgencyUpdate({
+        user: auditInfo.user,
+        oldData,
+        newData,
+        section: auditInfo.section || 'general',
+        changes: updateData
+      })
+    }
+
+    return newData
   }
 
   /**
@@ -70,11 +87,12 @@ class AgencyService {
   /**
    * Update basic agency information
    * @param {Object} basicInfo - Basic information to update
+   * @param {Object} auditInfo - Audit information
    * @returns {Promise<Object>} Updated basic information
    */
-  async updateBasicInfo(basicInfo) {
+  async updateBasicInfo(basicInfo, auditInfo = {}) {
     await delay(400)
-    return this.updateAgencyProfile(basicInfo)
+    return this.updateAgencyProfile(basicInfo, { ...auditInfo, section: 'basic' })
   }
 
   /**
@@ -98,11 +116,12 @@ class AgencyService {
   /**
    * Update contact information
    * @param {Object} contactInfo - Contact information to update
+   * @param {Object} auditInfo - Audit information
    * @returns {Promise<Object>} Updated contact information
    */
-  async updateContactInfo(contactInfo) {
+  async updateContactInfo(contactInfo, auditInfo = {}) {
     await delay(400)
-    return this.updateAgencyProfile(contactInfo)
+    return this.updateAgencyProfile(contactInfo, { ...auditInfo, section: 'contact' })
   }
 
   /**
@@ -189,13 +208,14 @@ class AgencyService {
   /**
    * Update social media links
    * @param {Object} socialMedia - Social media links
+   * @param {Object} auditInfo - Audit information
    * @returns {Promise<Object>} Updated agency profile
    */
-  async updateSocialMedia(socialMedia) {
+  async updateSocialMedia(socialMedia, auditInfo = {}) {
     await delay(300)
     return this.updateAgencyProfile({
       social_media: socialMedia
-    })
+    }, { ...auditInfo, section: 'social' })
   }
 
   /**
@@ -304,9 +324,10 @@ class AgencyService {
   /**
    * Update agency settings
    * @param {Object} settings - Settings to update
+   * @param {Object} auditInfo - Audit information
    * @returns {Promise<Object>} Updated agency profile
    */
-  async updateSettings(settings) {
+  async updateSettings(settings, auditInfo = {}) {
     await delay(300)
     const profile = await this.getAgencyProfile()
     
@@ -317,7 +338,7 @@ class AgencyService {
 
     return this.updateAgencyProfile({
       settings: updatedSettings
-    })
+    }, { ...auditInfo, section: 'settings' })
   }
 
   /**
@@ -352,39 +373,71 @@ class AgencyService {
   /**
    * Upload agency logo
    * @param {File} logoFile - Logo file
+   * @param {Object} auditInfo - Audit information
    * @returns {Promise<Object>} Updated agency profile with new logo URL
    */
-  async uploadLogo(logoFile) {
+  async uploadLogo(logoFile, auditInfo = {}) {
     await delay(800)
     if (shouldSimulateError()) {
       throw new Error('Failed to upload logo')
     }
 
+    const oldData = await this.getAgencyProfile()
+    const oldLogoUrl = oldData.logo_url
+
     // Simulate file upload
     const logoUrl = `/images/agency_logo_${Date.now()}.${logoFile.name.split('.').pop()}`
     
+    // Log file upload audit
+    if (auditInfo.user) {
+      await auditService.logFileUpload({
+        user: auditInfo.user,
+        fileType: 'logo',
+        fileName: logoFile.name,
+        fileSize: logoFile.size,
+        oldUrl: oldLogoUrl,
+        newUrl: logoUrl
+      })
+    }
+    
     return this.updateAgencyProfile({
       logo_url: logoUrl
-    })
+    }, { ...auditInfo, section: 'media' })
   }
 
   /**
    * Upload agency banner
    * @param {File} bannerFile - Banner file
+   * @param {Object} auditInfo - Audit information
    * @returns {Promise<Object>} Updated agency profile with new banner URL
    */
-  async uploadBanner(bannerFile) {
+  async uploadBanner(bannerFile, auditInfo = {}) {
     await delay(800)
     if (shouldSimulateError()) {
       throw new Error('Failed to upload banner')
     }
 
+    const oldData = await this.getAgencyProfile()
+    const oldBannerUrl = oldData.banner_url
+
     // Simulate file upload
     const bannerUrl = `/images/agency_banner_${Date.now()}.${bannerFile.name.split('.').pop()}`
     
+    // Log file upload audit
+    if (auditInfo.user) {
+      await auditService.logFileUpload({
+        user: auditInfo.user,
+        fileType: 'banner',
+        fileName: bannerFile.name,
+        fileSize: bannerFile.size,
+        oldUrl: oldBannerUrl,
+        newUrl: bannerUrl
+      })
+    }
+    
     return this.updateAgencyProfile({
       banner_url: bannerUrl
-    })
+    }, { ...auditInfo, section: 'media' })
   }
 
   /**
@@ -400,13 +453,14 @@ class AgencyService {
   /**
    * Update specializations
    * @param {Array} specializations - Array of specialization names
+   * @param {Object} auditInfo - Audit information
    * @returns {Promise<Object>} Updated agency profile
    */
-  async updateSpecializations(specializations) {
+  async updateSpecializations(specializations, auditInfo = {}) {
     await delay(300)
     return this.updateAgencyProfile({
       specializations
-    })
+    }, { ...auditInfo, section: 'services' })
   }
 
   /**
@@ -422,13 +476,14 @@ class AgencyService {
   /**
    * Update target countries
    * @param {Array} countries - Array of country names
+   * @param {Object} auditInfo - Audit information
    * @returns {Promise<Object>} Updated agency profile
    */
-  async updateTargetCountries(countries) {
+  async updateTargetCountries(countries, auditInfo = {}) {
     await delay(300)
     return this.updateAgencyProfile({
       target_countries: countries
-    })
+    }, { ...auditInfo, section: 'services' })
   }
 
   /**
@@ -444,13 +499,14 @@ class AgencyService {
   /**
    * Update services
    * @param {Array} services - Array of service names
+   * @param {Object} auditInfo - Audit information
    * @returns {Promise<Object>} Updated agency profile
    */
-  async updateServices(services) {
+  async updateServices(services, auditInfo = {}) {
     await delay(300)
     return this.updateAgencyProfile({
       services
-    })
+    }, { ...auditInfo, section: 'services' })
   }
 
   /**

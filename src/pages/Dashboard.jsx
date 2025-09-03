@@ -1,10 +1,16 @@
 import { useState, useEffect } from 'react'
-import { Calendar, Filter, TrendingUp, Users, Briefcase, Clock, AlertCircle } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Calendar, Filter, TrendingUp, Users, Briefcase, Clock, AlertCircle, Settings, Shield } from 'lucide-react'
 import { analyticsService, constantsService } from '../services/index.js'
 import DateDisplay, { TimeDisplay } from '../components/DateDisplay.jsx'
 import { getToday, formatInNepalTz } from '../utils/nepaliDate.js'
+import { useAuth } from '../contexts/AuthContext.jsx'
+import { PERMISSIONS } from '../services/authService.js'
+import PermissionGuard from '../components/PermissionGuard.jsx'
 
 const Dashboard = () => {
+  const navigate = useNavigate()
+  const { user, hasPermission, isAdmin, isRecruiter, isCoordinator } = useAuth()
   const [filters, setFilters] = useState({
     timeWindow: 'Week',
     job: 'All Jobs',
@@ -137,11 +143,15 @@ const Dashboard = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Welcome back, {user?.name}
+          </h1>
           <p className="mt-1 text-sm text-gray-600">
-            Overview of your recruitment pipeline and key metrics
+            {isAdmin() && "Full system access - Manage all recruitment operations"}
+            {isRecruiter() && "Manage jobs, applications, interviews, and workflow"}
+            {isCoordinator() && "Handle scheduling, notifications, and document management"}
           </p>
-          <div className="mt-2">
+          <div className="mt-2 flex items-center space-x-4">
             <DateDisplay 
               date={new Date()} 
               showNepali={true} 
@@ -149,6 +159,10 @@ const Dashboard = () => {
               className="text-xs" 
               iconClassName="w-3 h-3"
             />
+            <div className="flex items-center space-x-1">
+              <Shield className="w-3 h-3 text-gray-400" />
+              <span className="text-xs text-gray-500 capitalize">{user?.role} Access</span>
+            </div>
           </div>
         </div>
         
@@ -215,53 +229,73 @@ const Dashboard = () => {
 
       {/* Quick Actions */}
       <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <button className="card p-4 hover:shadow-lg transition-shadow duration-200 text-left">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Briefcase className="w-5 h-5 text-blue-600" />
+        <PermissionGuard permission={PERMISSIONS.CREATE_JOB}>
+          <button 
+            onClick={() => navigate('/drafts')}
+            className="card p-4 hover:shadow-lg transition-shadow duration-200 text-left"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Briefcase className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Create Job</p>
+                <p className="text-sm text-gray-600">Post new position</p>
+              </div>
             </div>
-            <div>
-              <p className="font-medium text-gray-900">Create Job</p>
-              <p className="text-sm text-gray-600">Post new position</p>
-            </div>
-          </div>
-        </button>
+          </button>
+        </PermissionGuard>
 
-        <button className="card p-4 hover:shadow-lg transition-shadow duration-200 text-left">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-              <Users className="w-5 h-5 text-green-600" />
+        <PermissionGuard permission={PERMISSIONS.VIEW_APPLICATIONS}>
+          <button 
+            onClick={() => navigate('/applications')}
+            className="card p-4 hover:shadow-lg transition-shadow duration-200 text-left"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                <Users className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Review Applications</p>
+                <p className="text-sm text-gray-600">{analytics.applications?.applicants || 0} pending</p>
+              </div>
             </div>
-            <div>
-              <p className="font-medium text-gray-900">Review Applications</p>
-              <p className="text-sm text-gray-600">{analytics.applications?.applicants || 0} pending</p>
-            </div>
-          </div>
-        </button>
+          </button>
+        </PermissionGuard>
 
-        <button className="card p-4 hover:shadow-lg transition-shadow duration-200 text-left">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-              <Calendar className="w-5 h-5 text-purple-600" />
+        <PermissionGuard permission={PERMISSIONS.SCHEDULE_INTERVIEW}>
+          <button 
+            onClick={() => navigate('/interviews')}
+            className="card p-4 hover:shadow-lg transition-shadow duration-200 text-left"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                <Calendar className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Schedule Interviews</p>
+                <p className="text-sm text-gray-600">{analytics.interviews?.weeklyPending || 0} pending</p>
+              </div>
             </div>
-            <div>
-              <p className="font-medium text-gray-900">Schedule Interviews</p>
-              <p className="text-sm text-gray-600">{analytics.interviews?.weeklyPending || 0} pending</p>
-            </div>
-          </div>
-        </button>
+          </button>
+        </PermissionGuard>
 
-        <button className="card p-4 hover:shadow-lg transition-shadow duration-200 text-left">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-orange-600" />
+        <PermissionGuard permission={PERMISSIONS.MANAGE_SETTINGS}>
+          <button 
+            onClick={() => navigate('/settings')}
+            className="card p-4 hover:shadow-lg transition-shadow duration-200 text-left"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                <Settings className="w-5 h-5 text-orange-600" />
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">System Settings</p>
+                <p className="text-sm text-gray-600">Admin controls</p>
+              </div>
             </div>
-            <div>
-              <p className="font-medium text-gray-900">View Analytics</p>
-              <p className="text-sm text-gray-600">Detailed insights</p>
-            </div>
-          </div>
-        </button>
+          </button>
+        </PermissionGuard>
       </div>
     </div>
   )

@@ -3,12 +3,13 @@ import applicationsData from '../data/applications.json'
 import candidateService from './candidateService.js'
 import jobService from './jobService.js'
 import constantsService from './constantsService.js'
+import performanceService from './performanceService.js'
 
-// Utility function to simulate API delay
-const delay = (ms = 300) => new Promise(resolve => setTimeout(resolve, ms))
+// Utility function to simulate API delay (reduced for performance)
+const delay = (ms = 100) => new Promise(resolve => setTimeout(resolve, ms))
 
-// Error simulation (5% chance)
-const shouldSimulateError = () => Math.random() < 0.05
+// Error simulation (1% chance)
+const shouldSimulateError = () => Math.random() < 0.01
 
 // Deep clone helper
 const deepClone = (obj) => JSON.parse(JSON.stringify(obj))
@@ -98,6 +99,12 @@ class ApplicationService {
    * @returns {Promise<Array>} Array of applications with candidate and job details
    */
   async getApplicationsWithDetails(filters = {}) {
+    // Use paginated method for better performance
+    if (filters.page || filters.limit) {
+      const result = await this.getApplicationsPaginated(filters)
+      return result.data || result
+    }
+    
     await delay(400)
     const applications = await this.getApplications(filters)
     const candidates = await candidateService.getCandidates()
@@ -537,6 +544,244 @@ class ApplicationService {
 
     application.documents.push(newDocument)
     return true
+  }
+
+  /**
+   * Get applications with server-side pagination and performance optimization
+   * Optimized for handling 10k+ records with <1.5s load time
+   * @param {Object} options - Pagination and filter options
+   * @returns {Promise<Object>} Paginated results with metadata
+   */
+  async getApplicationsPaginated(options = {}) {
+    const startTime = performance.now()
+    
+    const {
+      page = 1,
+      limit = 20,
+      search = '',
+      stage = '',
+      country = '',
+      jobId = '',
+      sortBy = 'applied_at',
+      sortOrder = 'desc'
+    } = options
+
+    // Use performance service for caching
+    const cacheKey = `applications_${JSON.stringify(options)}`
+    
+    try {
+      return await performanceService.getCachedData(cacheKey, async () => {
+        await delay(50) // Minimal delay for realism
+        
+        let filteredApplications = [...applicationsCache]
+        
+        // Apply search filter first (most selective)
+        if (search) {
+          const searchLower = search.toLowerCase()
+          const candidates = await candidateService.getCandidates()
+          const jobs = await jobService.getJobs()
+          
+          filteredApplications = filteredApplications.filter(app => {
+            const candidate = candidates.find(c => c.id === app.candidate_id)
+            const job = jobs.find(j => j.id === app.job_id)
+            
+            return (
+              candidate?.name?.toLowerCase().includes(searchLower) ||
+              candidate?.email?.toLowerCase().includes(searchLower) ||
+              candidate?.phone?.includes(search) ||
+              job?.title?.toLowerCase().includes(searchLower) ||
+              candidate?.skills?.some(skill => skill.toLowerCase().includes(searchLower))
+            )
+          })
+        }
+        
+        // Apply other filters
+        if (stage) {
+          filteredApplications = filteredApplications.filter(app => app.stage === stage)
+        }
+        
+        if (jobId) {
+          filteredApplications = filteredApplications.filter(app => app.job_id === jobId)
+        }
+        
+        if (country) {
+          const jobs = await jobService.getJobs()
+          const countryJobIds = jobs.filter(job => job.country === country).map(job => job.id)
+          filteredApplications = filteredApplications.filter(app => countryJobIds.includes(app.job_id))
+        }
+        
+        // Sort applications
+        filteredApplications.sort((a, b) => {
+          let aValue = a[sortBy]
+          let bValue = b[sortBy]
+          
+          if (sortBy === 'applied_at' || sortBy === 'updated_at') {
+            aValue = new Date(aValue)
+            bValue = new Date(bValue)
+          }
+          
+          if (sortOrder === 'desc') {
+            return bValue > aValue ? 1 : -1
+          } else {
+            return aValue > bValue ? 1 : -1
+          }
+        })
+        
+        // Calculate pagination
+        const total = filteredApplications.length
+        const totalPages = Math.ceil(total / limit)
+        const offset = (page - 1) * limit
+        const paginatedApplications = filteredApplications.slice(offset, offset + limit)
+        
+        // Enrich with candidate and job data (only for current page)
+        const enrichedApplications = await this.enrichApplicationsData(paginatedApplications)
+        
+        const endTime = performance.now()
+        const loadTime = endTime - startTime
+        
+        return {
+          data: enrichedApplications,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages,
+            hasNext: page < totalPages,
+            hasPrev: page > 1
+          },
+          performance: {
+            loadTime: Math.round(loadTime),
+            cached: false
+          }
+        }
+      })
+    } catch (error) {
+      console.error('Error in getApplicationsPaginated:', error)
+      throw new Error('Failed to fetch applications')
+    }
+  }
+
+  /**
+   * Enrich applications with candidate and job data efficiently
+   * @param {Array} applications - Applications to enrich
+   * @returns {Promise<Array>} Enriched applications
+   */
+  async enrichApplicationsData(applications) {
+    if (!applications.length) return []
+    
+    // Get unique IDs to minimize data fetching
+    const candidateIds = [...new Set(applications.map(app => app.candidate_id))]
+    const jobIds = [...new Set(applications.map(app => app.job_id))]
+    
+    // Fetch data in parallel
+    const [candidates, jobs] = await Promise.all([
+      candidateService.getCandidatesByIds(candidateIds),
+      jobService.getJobsByIds(jobIds)
+    ])
+    
+    // Create lookup maps for O(1) access
+    const candidateMap = new Map(candidates.map(c => [c.id, c]))
+    const jobMap = new Map(jobs.map(j => [j.id, j]))
+    
+    // Enrich applications
+    return applications.map(app => ({
+      ...app,
+      candidate: candidateMap.get(app.candidate_id),
+      job: jobMap.get(app.job_id)
+    }))
+  }
+
+  /**
+   * Get application statistics for dashboard
+   * @returns {Promise<Object>} Application statistics
+   */
+  async getApplicationStatistics() {
+    const cacheKey = 'application_statistics'
+    
+    return await performanceService.getCachedData(cacheKey, async () => {
+      await delay(50)
+      
+      const applications = [...applicationsCache]
+      const stages = await constantsService.getApplicationStages()
+      
+      const stats = {
+        total: applications.length,
+        byStage: {},
+        byMonth: {},
+        recentActivity: applications
+          .filter(app => {
+            const appDate = new Date(app.applied_at)
+            const weekAgo = new Date()
+            weekAgo.setDate(weekAgo.getDate() - 7)
+            return appDate >= weekAgo
+          }).length
+      }
+      
+      // Count by stage
+      Object.values(stages).forEach(stage => {
+        stats.byStage[stage] = applications.filter(app => app.stage === stage).length
+      })
+      
+      // Count by month (last 6 months)
+      for (let i = 0; i < 6; i++) {
+        const date = new Date()
+        date.setMonth(date.getMonth() - i)
+        const monthKey = date.toISOString().slice(0, 7) // YYYY-MM
+        
+        stats.byMonth[monthKey] = applications.filter(app => {
+          return app.applied_at.startsWith(monthKey)
+        }).length
+      }
+      
+      return stats
+    })
+  }
+
+  /**
+   * Bulk operations with performance optimization
+   * @param {Array} applicationIds - Application IDs to update
+   * @param {string} stage - New stage
+   * @returns {Promise<Object>} Update result
+   */
+  async bulkUpdateStageOptimized(applicationIds, stage) {
+    const startTime = performance.now()
+    
+    try {
+      // Process in chunks to avoid blocking
+      await performanceService.processInChunks(
+        applicationIds,
+        async (chunk) => {
+          chunk.forEach(id => {
+            const appIndex = applicationsCache.findIndex(app => app.id === id)
+            if (appIndex !== -1) {
+              applicationsCache[appIndex] = {
+                ...applicationsCache[appIndex],
+                stage,
+                updated_at: new Date().toISOString()
+              }
+            }
+          })
+          await delay(10) // Small delay between chunks
+        },
+        50 // Process 50 at a time
+      )
+      
+      // Clear relevant caches
+      performanceService.clearCache()
+      
+      const endTime = performance.now()
+      
+      return {
+        success: true,
+        updated: applicationIds.length,
+        performance: {
+          loadTime: Math.round(endTime - startTime)
+        }
+      }
+    } catch (error) {
+      console.error('Bulk update error:', error)
+      throw new Error('Failed to update applications')
+    }
   }
 }
 

@@ -5,8 +5,8 @@ import constantsService from './constantsService.js'
 // Utility function to simulate API delay
 const delay = (ms = 300) => new Promise(resolve => setTimeout(resolve, ms))
 
-// Error simulation (5% chance)
-const shouldSimulateError = () => Math.random() < 0.05
+// Error simulation (1% chance)
+const shouldSimulateError = () => Math.random() < 0.01
 
 // Deep clone helper
 const deepClone = (obj) => JSON.parse(JSON.stringify(obj))
@@ -14,6 +14,20 @@ const deepClone = (obj) => JSON.parse(JSON.stringify(obj))
 let candidatesCache = deepClone(candidatesData)
 
 class CandidateService {
+  /**
+   * Get candidates by IDs (batch fetch for performance)
+   * @param {Array} candidateIds - Array of candidate IDs
+   * @returns {Promise<Array>} Array of candidates
+   */
+  async getCandidatesByIds(candidateIds) {
+    await delay(100) // Reduced delay for batch operations
+    if (shouldSimulateError()) {
+      throw new Error('Failed to fetch candidates')
+    }
+
+    return candidatesCache.filter(candidate => candidateIds.includes(candidate.id))
+  }
+
   /**
    * Get all candidates with optional filtering
    * @param {Object} filters - Filter options

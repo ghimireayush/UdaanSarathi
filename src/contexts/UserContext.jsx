@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import { authService } from '../services/index.js'
+import authService from '../services/authService.js'
 
 // Create the context
 const UserContext = createContext()
@@ -24,7 +24,7 @@ export const UserProvider = ({ children }) => {
     const checkAuthStatus = () => {
       try {
         const currentUser = authService.getCurrentUser()
-        const authStatus = authService.isAuthenticated()
+        const authStatus = authService.isUserAuthenticated()
         
         setUser(currentUser)
         setIsAuthenticated(authStatus)

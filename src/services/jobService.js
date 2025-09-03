@@ -15,6 +15,20 @@ let jobsCache = deepClone(jobsData)
 
 class JobService {
   /**
+   * Get jobs by IDs (batch fetch for performance)
+   * @param {Array} jobIds - Array of job IDs
+   * @returns {Promise<Array>} Array of jobs
+   */
+  async getJobsByIds(jobIds) {
+    await delay(100) // Reduced delay for batch operations
+    if (shouldSimulateError()) {
+      throw new Error('Failed to fetch jobs')
+    }
+
+    return jobsCache.filter(job => jobIds.includes(job.id))
+  }
+
+  /**
    * Get all jobs with optional filtering
    * @param {Object} filters - Filter options
    * @returns {Promise<Array>} Array of jobs

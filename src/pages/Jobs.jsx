@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { 
   Search, 
   Plus, 
@@ -11,13 +11,17 @@ import {
   ChevronLeft,
   ChevronRight,
   UserCheck,
-  Clock
+  Clock,
+  Edit,
+  Trash2
 } from 'lucide-react'
-import { jobService, constantsService } from '../services/index.js'
+import { jobService, constantsService, PERMISSIONS } from '../services/index.js'
 import { format, formatDistanceToNow } from 'date-fns'
+import PermissionGuard, { PermissionButton, usePermissions } from '../components/PermissionGuard.jsx'
 
 
 const Jobs = () => {
+  const navigate = useNavigate()
   const [filters, setFilters] = useState({
     search: '',
     country: 'All Countries',
@@ -136,10 +140,15 @@ const Jobs = () => {
           </p>
         </div>
         <div className="mt-4 sm:mt-0">
-          <button className="btn-primary flex items-center">
-            <Plus className="w-4 h-4 mr-2" />
-            Create Job
-          </button>
+          <PermissionGuard permission={PERMISSIONS.CREATE_JOB}>
+            <button 
+              onClick={() => navigate('/drafts')}
+              className="btn-primary flex items-center"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create Job
+            </button>
+          </PermissionGuard>
         </div>
       </div>
 
@@ -265,27 +274,42 @@ const Jobs = () => {
                         </td>
                         <td className="px-6 py-4 text-sm">
                           <div className="flex flex-col space-y-1">
-                            <Link 
-                              to={`/jobs/${job.id}`}
-                              className="text-primary-600 hover:text-primary-800 flex items-center"
-                            >
-                              <Eye className="w-4 h-4 mr-1" />
-                              View Details
-                            </Link>
-                            <Link 
-                              to={`/jobs/${job.id}?tab=applied`}
-                              className="text-gray-600 hover:text-gray-800 flex items-center"
-                            >
-                              <Users className="w-4 h-4 mr-1" />
-                              Manage Candidates
-                            </Link>
-                            <Link 
-                              to={`/jobs/${job.id}?tab=shortlisted`}
-                              className="text-gray-600 hover:text-gray-800 flex items-center"
-                            >
-                              <Calendar className="w-4 h-4 mr-1" />
-                              Schedule
-                            </Link>
+                            <PermissionGuard permission={PERMISSIONS.VIEW_JOBS}>
+                              <Link 
+                                to={`/jobs/${job.id}`}
+                                className="text-primary-600 hover:text-primary-800 flex items-center"
+                              >
+                                <Eye className="w-4 h-4 mr-1" />
+                                View Details
+                              </Link>
+                            </PermissionGuard>
+                            <PermissionGuard permission={PERMISSIONS.VIEW_APPLICATIONS}>
+                              <Link 
+                                to={`/jobs/${job.id}/shortlist`}
+                                className="text-blue-600 hover:text-blue-800 flex items-center"
+                              >
+                                <UserCheck className="w-4 h-4 mr-1" />
+                                View Shortlist
+                              </Link>
+                            </PermissionGuard>
+                            <PermissionGuard permission={PERMISSIONS.VIEW_APPLICATIONS}>
+                              <Link 
+                                to={`/jobs/${job.id}?tab=applied`}
+                                className="text-gray-600 hover:text-gray-800 flex items-center"
+                              >
+                                <Users className="w-4 h-4 mr-1" />
+                                Manage Candidates
+                              </Link>
+                            </PermissionGuard>
+                            <PermissionGuard permission={PERMISSIONS.SCHEDULE_INTERVIEW}>
+                              <Link 
+                                to={`/jobs/${job.id}?tab=shortlisted`}
+                                className="text-gray-600 hover:text-gray-800 flex items-center"
+                              >
+                                <Calendar className="w-4 h-4 mr-1" />
+                                Schedule
+                              </Link>
+                            </PermissionGuard>
                           </div>
                         </td>
                       </tr>

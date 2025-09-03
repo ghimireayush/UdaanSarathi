@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { 
   Search, 
@@ -27,6 +27,9 @@ import {
 } from 'lucide-react'
 import { applicationService, jobService, constantsService } from '../services/index.js'
 import { format } from 'date-fns'
+import performanceService from '../services/performanceService'
+import { useAccessibility } from '../hooks/useAccessibility'
+import { useI18n } from '../hooks/useI18n'
 
 const Applications = () => {
   const [filters, setFilters] = useState({
@@ -35,7 +38,12 @@ const Applications = () => {
     country: '',
     jobId: ''
   })
-  const [pagination, setPagination] = useState({ page: 1, limit: 12 })
+  const [pagination, setPagination] = useState({ 
+    page: 1, 
+    limit: 50, // Optimized for 10k+ records
+    total: 0,
+    totalPages: 0
+  })
   const [selectedApplications, setSelectedApplications] = useState(new Set())
   const [showSummary, setShowSummary] = useState(false)
   const [selectedCandidate, setSelectedCandidate] = useState(null)
@@ -50,42 +58,92 @@ const Applications = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isUpdating, setIsUpdating] = useState(false)
+  const [loadTime, setLoadTime] = useState(null)
 
-  // Fetch applications data using service
+  // Accessibility and i18n hooks
+  const { containerRef, setupRightPaneNavigation, announce } = useAccessibility()
+  const { t, formatDate, formatNumber } = useI18n()
+
+  // Debounced search to reduce API calls
+  const debouncedSearch = useMemo(
+    () => performanceService.debounce((searchTerm) => {
+      setFilters(prev => ({ ...prev, search: searchTerm }))
+      setPagination(prev => ({ ...prev, page: 1 }))
+    }, 300),
+    []
+  )
+
+  // Fetch applications data using service with performance optimization
   useEffect(() => {
     const fetchApplicationsData = async () => {
       try {
         setIsLoading(true)
         setError(null)
+        const startTime = performance.now()
         
-        const [applicationsData, jobsData, stagesData] = await Promise.all([
-          applicationService.getApplicationsWithDetails(filters),
+        // Use performance service for paginated data
+        const paginationParams = {
+          page: pagination.page,
+          limit: pagination.limit,
+          search: filters.search,
+          sortBy: 'applied_at',
+          sortOrder: 'desc'
+        }
+
+        const [applicationsResult, jobsData, stagesData] = await Promise.all([
+          performanceService.getPaginatedData(
+            { ...paginationParams, ...filters },
+            (params) => applicationService.getApplicationsWithDetails(params)
+          ),
           jobService.getJobs({ status: 'published' }),
           constantsService.getApplicationStages()
         ])
         
-        setApplications(applicationsData)
+        setApplications(applicationsResult.data || applicationsResult)
+        setPagination(prev => ({
+          ...prev,
+          total: applicationsResult.total || applicationsResult.length,
+          totalPages: Math.ceil((applicationsResult.total || applicationsResult.length) / prev.limit)
+        }))
         setJobs(jobsData)
         setApplicationStages(stagesData)
+
+        const endTime = performance.now()
+        const loadTime = endTime - startTime
+        setLoadTime(loadTime)
+        
+        // Announce load completion for screen readers
+        announce(t('applications.loaded', { 
+          count: applicationsResult.data?.length || applicationsResult.length,
+          time: Math.round(loadTime)
+        }))
+        
       } catch (err) {
         console.error('Failed to fetch applications data:', err)
         setError(err)
+        announce(t('common.error'), 'assertive')
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchApplicationsData()
-  }, [filters])
+  }, [filters, pagination.page, pagination.limit, announce, t])
 
-  const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }))
-    setPagination(prev => ({ ...prev, page: 1 })) // Reset to first page
-  }
+  const handleFilterChange = useCallback((key, value) => {
+    if (key === 'search') {
+      debouncedSearch(value)
+    } else {
+      setFilters(prev => ({ ...prev, [key]: value }))
+      setPagination(prev => ({ ...prev, page: 1 })) // Reset to first page
+    }
+  }, [debouncedSearch])
 
-  const handlePageChange = (newPage) => {
+  const handlePageChange = useCallback((newPage) => {
     setPagination(prev => ({ ...prev, page: newPage }))
-  }
+    // Scroll to top for better UX
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [])
 
   const handleApplicationSelect = (applicationId) => {
     const newSelected = new Set(selectedApplications)
@@ -326,8 +384,27 @@ const Applications = () => {
         </div>
       </div>
 
+      {/* Performance Indicator */}
+      {loadTime && (
+        <div className="mb-4 text-sm text-gray-500 flex items-center justify-between">
+          <span>
+            {t('applications.showing', { 
+              start: (pagination.page - 1) * pagination.limit + 1,
+              end: Math.min(pagination.page * pagination.limit, pagination.total),
+              total: formatNumber(pagination.total)
+            })}
+          </span>
+          <span>
+            {t('applications.loadTime', { time: Math.round(loadTime) })} 
+            {loadTime > 1500 && (
+              <span className="ml-2 text-yellow-600">⚠️ {t('applications.slowLoad')}</span>
+            )}
+          </span>
+        </div>
+      )}
+
       {/* Applications Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" ref={containerRef}>
         {applications.length > 0 ? (
           applications.map(application => (
             <div key={application.id} className="card p-6 hover:shadow-lg transition-shadow duration-200">
@@ -463,12 +540,100 @@ const Applications = () => {
         )}
       </div>
 
-      {/* Enhanced Candidate Summary Modal */}
+      {/* Pagination Controls */}
+      {pagination.totalPages > 1 && (
+        <div className="mt-8 flex items-center justify-between">
+          <div className="text-sm text-gray-700">
+            {t('applications.pagination.info', {
+              start: (pagination.page - 1) * pagination.limit + 1,
+              end: Math.min(pagination.page * pagination.limit, pagination.total),
+              total: formatNumber(pagination.total)
+            })}
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => handlePageChange(pagination.page - 1)}
+              disabled={pagination.page === 1}
+              className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label={t('common.previous')}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            
+            {/* Page Numbers */}
+            {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+              let pageNum
+              if (pagination.totalPages <= 5) {
+                pageNum = i + 1
+              } else if (pagination.page <= 3) {
+                pageNum = i + 1
+              } else if (pagination.page >= pagination.totalPages - 2) {
+                pageNum = pagination.totalPages - 4 + i
+              } else {
+                pageNum = pagination.page - 2 + i
+              }
+              
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => handlePageChange(pageNum)}
+                  className={`px-3 py-2 text-sm font-medium rounded-md ${
+                    pagination.page === pageNum
+                      ? 'bg-primary-600 text-white'
+                      : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
+                  }`}
+                  aria-label={t('applications.pagination.page', { page: pageNum })}
+                  aria-current={pagination.page === pageNum ? 'page' : undefined}
+                >
+                  {pageNum}
+                </button>
+              )
+            })}
+            
+            <button
+              onClick={() => handlePageChange(pagination.page + 1)}
+              disabled={pagination.page === pagination.totalPages}
+              className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label={t('common.next')}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Enhanced Candidate Summary Modal with Accessibility */}
       {showSummary && selectedCandidate && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg w-full max-w-4xl max-h-screen overflow-y-auto">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="summary-title"
+        >
+          <div 
+            className="bg-white rounded-lg w-full max-w-4xl max-h-screen overflow-y-auto"
+            ref={(el) => {
+              if (el && showSummary) {
+                setupRightPaneNavigation({
+                  onEscape: () => {
+                    setShowSummary(false)
+                    setSelectedCandidate(null)
+                    setSelectedApplication(null)
+                  },
+                  onEnter: (target) => {
+                    if (target.tagName === 'BUTTON') {
+                      target.click()
+                    }
+                  }
+                })
+              }
+            }}
+          >
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">Applicant Summary</h2>
+              <h2 id="summary-title" className="text-xl font-semibold text-gray-900">
+                {t('applications.summary')}
+              </h2>
               <button
                 onClick={() => {
                   setShowSummary(false)

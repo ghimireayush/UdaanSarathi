@@ -14,13 +14,14 @@ import {
   X,
   LogOut
 } from 'lucide-react'
-import { useUser } from '../contexts/UserContext'
+import { useAuth } from '../contexts/AuthContext.jsx'
+import { PERMISSIONS } from '../services/authService.js'
 
 const Layout = ({ children }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, logout } = useUser()
+  const { user, logout, hasPermission, hasAnyPermission } = useAuth()
 
   const handleLogout = () => {
     logout()
@@ -28,14 +29,50 @@ const Layout = ({ children }) => {
   }
 
   const navItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: BarChart3 },
-    { path: '/jobs', label: 'Jobs', icon: Briefcase },
-    { path: '/applications', label: 'Applications', icon: Users },
-    { path: '/interviews', label: 'Interviews', icon: Calendar },
-    { path: '/workflow', label: 'Workflow', icon: GitBranch },
-    { path: '/drafts', label: 'Drafts', icon: FileEdit },
-    { path: '/settings', label: 'Agency Settings', icon: Settings },
-  ]
+    { 
+      path: '/dashboard', 
+      label: 'Dashboard', 
+      icon: BarChart3,
+      show: true // Dashboard is always accessible
+    },
+    { 
+      path: '/jobs', 
+      label: 'Jobs', 
+      icon: Briefcase,
+      show: hasPermission(PERMISSIONS.VIEW_JOBS)
+    },
+    { 
+      path: '/applications', 
+      label: 'Applications', 
+      icon: Users,
+      show: hasPermission(PERMISSIONS.VIEW_APPLICATIONS)
+    },
+    { 
+      path: '/interviews', 
+      label: 'Interviews', 
+      icon: Calendar,
+      show: hasAnyPermission([PERMISSIONS.VIEW_INTERVIEWS, PERMISSIONS.SCHEDULE_INTERVIEW])
+    },
+    { 
+      path: '/workflow', 
+      label: 'Workflow', 
+      icon: GitBranch,
+      show: hasPermission(PERMISSIONS.VIEW_WORKFLOW)
+    },
+    { 
+      path: '/drafts', 
+      label: 'Drafts', 
+      icon: FileEdit,
+      show: hasAnyPermission([PERMISSIONS.CREATE_JOB, PERMISSIONS.EDIT_JOB])
+    },
+    { 
+      path: '/settings', 
+      label: 'Agency Settings', 
+      icon: Settings,
+      show: hasPermission(PERMISSIONS.MANAGE_SETTINGS)
+    },
+
+  ].filter(item => item.show)
 
   const isActive = (path) => {
     if (path === '/dashboard' && location.pathname === '/') return true
@@ -55,9 +92,7 @@ const Layout = ({ children }) => {
       {/* Skip to content link for accessibility */}
       <a 
         href="#main-content" 
-        className="skip-to-content"
-        onFocus={(e) => e.target.classList.remove('-translate-y-full')}
-        onBlur={(e) => e.target.classList.add('-translate-y-full')}
+        className="absolute left-0 top-0 bg-primary-600 text-white px-4 py-2 rounded-br-md transform -translate-y-full focus:translate-y-0 transition-transform z-50"
       >
         Skip to main content
       </a>

@@ -1,12 +1,15 @@
 // Nepali Date and Timezone Utilities for Udaan Sarathi Portal
 import NepaliDate from 'nepali-date-converter'
-import { format, parseISO, isValid } from 'date-fns'
+import { format, parseISO, isValid, startOfWeek, endOfWeek } from 'date-fns'
+
+// Nepal timezone constant
+export const NEPAL_TIMEZONE = 'Asia/Kathmandu'
+
+// Nepali week starts on Sunday (0)
+export const NEPALI_WEEK_START = 0
 
 // Simple timezone offset calculation for Nepal (UTC+5:45)
 const NEPAL_OFFSET_MINUTES = 5 * 60 + 45
-
-// Nepal timezone
-export const NEPAL_TIMEZONE = 'Asia/Kathmandu'
 
 // Helper function to convert UTC to Nepal time
 const convertUtcToNepalTime = (date) => {
@@ -78,7 +81,7 @@ export const englishToNepali = (englishDate) => {
 export const nepaliToEnglish = (year, month, day) => {
   try {
     const nepaliDate = new NepaliDate(year, month - 1, day) // NepaliDate uses 0-based months
-    return nepaliDate.toJSDate()
+    return nepaliDate.toJsDate()
   } catch (error) {
     console.error('Error converting Nepali to English date:', error)
     return null
@@ -322,4 +325,122 @@ export default {
   NEPALI_MONTHS_EN,
   NEPALI_DAYS,
   NEPALI_DAYS_EN
+}
+
+/**
+ * Get current Nepal time (alternative implementation)
+ * @returns {Date} Current date in Nepal timezone
+ */
+export const getCurrentNepaliTime = () => {
+  return getCurrentNepalTime()
+}
+
+/**
+ * Convert any date to Nepal timezone (alternative implementation)
+ * @param {Date|string} date - Date to convert
+ * @returns {Date} Date in Nepal timezone
+ */
+export const toNepaliTime = (date) => {
+  return utcToNepalTime(date)
+}
+
+/**
+ * Get Nepali week boundaries
+ * @param {Date} date - Reference date (defaults to current Nepal time)
+ * @returns {Object} { start, end } dates in Nepal timezone
+ */
+export const getNepaliWeekBoundaries = (date = null) => {
+  const referenceDate = date || getCurrentNepalTime()
+  const start = startOfWeek(referenceDate, { weekStartsOn: NEPALI_WEEK_START })
+  const end = endOfWeek(referenceDate, { weekStartsOn: NEPALI_WEEK_START })
+  
+  return { start, end }
+}
+
+/**
+ * Format date for Nepal timezone display
+ * @param {Date|string} date - Date to format
+ * @param {string} formatString - Format string (default: 'yyyy-MM-dd HH:mm:ss')
+ * @returns {string} Formatted date string
+ */
+export const formatNepaliTime = (date, formatString = 'yyyy-MM-dd HH:mm:ss') => {
+  const nepaliDate = utcToNepalTime(date)
+  return format(nepaliDate, formatString)
+}
+
+/**
+ * Get Nepali calendar date information (alternative implementation)
+ * @param {Date|string} date - Date to convert (defaults to current Nepal time)
+ * @returns {Object} Nepali date information
+ */
+export const getNepaliDateInfo = (date = null) => {
+  const targetDate = date ? utcToNepalTime(date) : getCurrentNepalTime()
+  const nepaliDate = new NepaliDate(targetDate)
+  
+  return {
+    english: {
+      date: targetDate,
+      formatted: format(targetDate, 'yyyy-MM-dd'),
+      display: format(targetDate, 'MMMM dd, yyyy'),
+      time: format(targetDate, 'HH:mm:ss'),
+      dayOfWeek: format(targetDate, 'EEEE')
+    },
+    nepali: {
+      year: nepaliDate.getYear(),
+      month: nepaliDate.getMonth(),
+      date: nepaliDate.getDate(),
+      formatted: nepaliDate.format('YYYY-MM-DD'),
+      display: nepaliDate.format('MMMM DD, YYYY'),
+      dayOfWeek: nepaliDate.format('dddd')
+    },
+    timezone: NEPAL_TIMEZONE
+  }
+}
+
+/**
+ * Check if a date is within the current Nepali week
+ * @param {Date|string} date - Date to check
+ * @returns {boolean} True if date is in current Nepali week
+ */
+export const isCurrentNepaliWeek = (date) => {
+  const checkDate = utcToNepalTime(date)
+  const { start, end } = getNepaliWeekBoundaries()
+  
+  return checkDate >= start && checkDate <= end
+}
+
+/**
+ * Check if a date is today in Nepal timezone (alternative implementation)
+ * @param {Date|string} date - Date to check
+ * @returns {boolean} True if date is today in Nepal
+ */
+export const isTodayInNepal = (date) => {
+  const checkDate = utcToNepalTime(date)
+  const today = getCurrentNepalTime()
+  
+  return format(checkDate, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')
+}
+
+/**
+ * Get time difference from Nepal timezone
+ * @param {Date|string} date - Date to compare
+ * @returns {Object} Time difference information
+ */
+export const getTimeDifferenceFromNepal = (date) => {
+  const targetDate = utcToNepalTime(date)
+  const now = getCurrentNepalTime()
+  const diffMs = now.getTime() - targetDate.getTime()
+  
+  const diffMinutes = Math.floor(diffMs / (1000 * 60))
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  
+  return {
+    milliseconds: diffMs,
+    minutes: diffMinutes,
+    hours: diffHours,
+    days: diffDays,
+    isInPast: diffMs > 0,
+    isInFuture: diffMs < 0
+  }
 }
