@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { 
   BarChart3, 
   Briefcase, 
@@ -11,12 +11,21 @@ import {
   Bell,
   User,
   Menu,
-  X
+  X,
+  LogOut
 } from 'lucide-react'
+import { useUser } from '../contexts/UserContext'
 
 const Layout = ({ children }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const location = useLocation()
+  const navigate = useNavigate()
+  const { user, logout } = useUser()
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
 
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: BarChart3 },
@@ -118,7 +127,19 @@ const Layout = ({ children }) => {
                 <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center" role="img" aria-label="User avatar">
                   <User className="w-5 h-5 text-primary-600" aria-hidden="true" />
                 </div>
-                <span className="hidden md:block text-sm text-gray-700">Admin</span>
+                {user && (
+                  <div className="hidden md:block">
+                    <div className="text-sm text-gray-700 font-medium">{user.name}</div>
+                    <div className="text-xs text-gray-500 capitalize">{user.role}</div>
+                  </div>
+                )}
+                <button 
+                  onClick={handleLogout}
+                  className="hidden md:flex p-2 text-gray-400 hover:text-gray-600 focus:text-gray-600 transition-colors touch-target"
+                  aria-label="Logout"
+                >
+                  <LogOut className="w-5 h-5" aria-hidden="true" />
+                </button>
               </div>
             </div>
           </div>
@@ -163,6 +184,19 @@ const Layout = ({ children }) => {
                     </Link>
                   )
                 })}
+                {user && (
+                  <button
+                    onClick={() => {
+                      handleLogout()
+                      closeMobileMenu()
+                    }}
+                    className="flex items-center pl-3 pr-4 py-3 border-l-4 text-base font-medium transition-colors duration-200 touch-target border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 hover:border-gray-300 focus:text-gray-700 focus:bg-gray-50 focus:border-gray-300 w-full text-left"
+                    role="menuitem"
+                  >
+                    <LogOut className="w-5 h-5 mr-3" aria-hidden="true" />
+                    Logout
+                  </button>
+                )}
               </div>
             </div>
           </>

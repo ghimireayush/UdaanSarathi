@@ -24,6 +24,23 @@ npm run dev
 npm run build
 ```
 
+## 🔐 Authentication System
+
+The application includes a complete authentication system with:
+
+- **Login Page**: Secure login interface with username/password authentication
+- **Role-Based Access Control**: Different access levels for Admin, Recruiter, and Coordinator roles
+- **Session Management**: User session tracking with automatic expiration
+- **User Context**: Application-wide user context with role-based permissions
+
+### Demo Credentials
+
+Demo credentials are available in the [sep3.md](sep3.md) file. The system includes three user roles:
+
+- **Admin** (`admin`/`admin123`): Full access to all application features
+- **Recruiter** (`recruiter`/`recruit123`): Access to job postings, applications, and interview scheduling
+- **Coordinator** (`coordinator`/`coord123`): Limited access to workflow management functions
+
 ## 🎨 Tailwind CSS Setup
 
 This project uses Tailwind CSS for styling. If you see "Unknown at rule" warnings in VS Code, follow these steps:
@@ -73,7 +90,10 @@ src/
 │   ├── NepaliCalendar.jsx
 │   ├── Layout.jsx
 │   ├── InterviewScheduling.jsx
-│   └── ScheduledInterviews.jsx
+│   ├── ScheduledInterviews.jsx
+│   ├── PrivateRoute.jsx
+│   └── ui/
+│       └── Card.jsx
 ├── pages/              # Main application pages
 │   ├── Dashboard.jsx
 │   ├── Jobs.jsx
@@ -82,20 +102,27 @@ src/
 │   ├── Interviews.jsx
 │   ├── Workflow.jsx
 │   ├── Drafts.jsx
-│   └── AgencySettings.jsx
+│   ├── AgencySettings.jsx
+│   └── Login.jsx
 ├── services/           # API layer
-│   └── api.js
+│   ├── authService.js
+│   └── index.js
+├── contexts/           # React contexts
+│   └── UserContext.jsx
 ├── hooks/              # React Query hooks
 │   └── useApi.js
 ├── data/               # Mock data
 │   └── mockData.js
 ├── utils/              # Utility functions
 │   └── nepaliDate.js
+├── assets/             # Static assets
+│   └── logo.svg
 └── index.css           # Global styles
 ```
 
 ## 🌟 Key Features
 
+- **🔐 User Authentication** - Secure login with role-based access control
 - **📊 Analytics Dashboard** - Real-time recruitment metrics
 - **💼 Job Management** - Create, edit, and manage job postings
 - **👥 Application Tracking** - Centralized candidate management

@@ -7,6 +7,7 @@ export { default as interviewService } from './interviewService.js'
 export { default as analyticsService } from './analyticsService.js'
 export { default as agencyService } from './agencyService.js'
 export { default as workflowService } from './workflowService.js'
+export { default as authService } from './authService.js'
 
 // Named exports for convenience
 export {
