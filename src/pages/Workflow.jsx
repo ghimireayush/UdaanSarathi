@@ -1,147 +1,231 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { 
-  Search,
-  Briefcase,
-  User,
-  Calendar,
-  FileText,
+  Users, 
+  Search, 
+  Filter, 
+  FileText, 
   Upload,
-  Check,
+  CheckCircle,
   Clock,
   AlertCircle,
-  Eye,
-  Plus,
-  Filter,
   Phone,
-  Mail,
+  CreditCard,
+  User,
+  Calendar,
   MapPin,
+  Briefcase,
   Paperclip
 } from 'lucide-react'
-import { workflowService, constantsService } from '../services/index.js'
+import { applicationService, candidateService, constantsService } from '../services/index.js'
 import { format } from 'date-fns'
+import WorkflowStepper from '../components/WorkflowStepper.jsx'
+import CandidateSummaryS2 from '../components/CandidateSummaryS2.jsx'
 
 const Workflow = () => {
-  const [activeTab, setActiveTab] = useState('by-job') // 'by-job' or 'by-applicant'
+  const [searchParams, setSearchParams] = useSearchParams()
+  
+  // State management
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'by-job')
+  const [selectedStage, setSelectedStage] = useState(searchParams.get('stage') || 'interview-passed')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCandidate, setSelectedCandidate] = useState(null)
-  const [showSummary, setShowSummary] = useState(false)
-  const [workflows, setWorkflows] = useState([])
-  const [workflowStages, setWorkflowStages] = useState([])
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  
+  // Data state
+  const [candidates, setCandidates] = useState([])
+  const [analytics, setAnalytics] = useState({})
+  const [stages, setStages] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [searchResults, setSearchResults] = useState([])
-  
-  // Derived state for different data views
-  const candidatesByJob = workflows.filter(w => w.stage === 'ready_to_fly')
-  const candidatesBySearch = searchQuery.length >= 3 ? searchResults : []
 
-  // Fetch workflow data using service
+  // Workflow stages configuration - Full 15-step pipeline
+  const workflowStages = [
+    { id: 'applied', label: 'Applied', icon: FileText, description: 'Initial application submitted' },
+    { id: 'shortlisted', label: 'Shortlisted', icon: CheckCircle, description: 'Selected for interview' },
+    { id: 'interview-scheduled', label: 'Interview Scheduled', icon: Calendar, description: 'Interview appointment set' },
+    { id: 'interview-passed', label: 'Interview Passed', icon: Users, description: 'Successfully completed interview' },
+    { id: 'medical-scheduled', label: 'Medical Scheduled', icon: Calendar, description: 'Medical examination appointment' },
+    { id: 'medical-passed', label: 'Medical Passed', icon: CheckCircle, description: 'Medical clearance obtained' },
+    { id: 'visa-application', label: 'Visa Application', icon: FileText, description: 'Visa application submitted' },
+    { id: 'visa-approved', label: 'Visa Approved', icon: CheckCircle, description: 'Visa approval received' },
+    { id: 'police-clearance', label: 'Police Clearance', icon: FileText, description: 'Police clearance certificate' },
+    { id: 'embassy-attestation', label: 'Embassy Attestation', icon: FileText, description: 'Document attestation process' },
+    { id: 'travel-documents', label: 'Travel Documents', icon: FileText, description: 'Travel documents prepared' },
+    { id: 'flight-booking', label: 'Flight Booking', icon: Calendar, description: 'Flight tickets booked' },
+    { id: 'pre-departure', label: 'Pre-Departure', icon: Clock, description: 'Pre-departure preparations' },
+    { id: 'departed', label: 'Departed', icon: MapPin, description: 'Candidate has departed' },
+    { id: 'ready-to-fly', label: 'Ready to Fly', icon: CheckCircle, description: 'Fully processed and ready' }
+  ]
+
   useEffect(() => {
-    const fetchWorkflowData = async () => {
-      try {
-        setIsLoading(true)
-        setError(null)
-        
-        const [workflowsData, stagesData] = await Promise.all([
-          workflowService.getWorkflowsWithDetails(),
-          workflowService.getWorkflowStages()
-        ])
-        
-        setWorkflows(workflowsData)
-        setWorkflowStages(stagesData)
-      } catch (err) {
-        console.error('Failed to fetch workflow data:', err)
-        setError(err)
-      } finally {
-        setIsLoading(false)
-      }
-    }
+    loadWorkflowData()
+  }, [selectedStage, activeTab])
 
-    fetchWorkflowData()
-  }, [])
-
-  // Search functionality
-  useEffect(() => {
-    const performSearch = async () => {
-      if (searchQuery.trim()) {
-        try {
-          const results = await workflowService.getWorkflowsWithDetails({ search: searchQuery })
-          setSearchResults(results)
-        } catch (err) {
-          console.error('Search failed:', err)
-        }
-      } else {
-        setSearchResults([])
-      }
-    }
-
-    const debounceTimer = setTimeout(performSearch, 300)
-    return () => clearTimeout(debounceTimer)
-  }, [searchQuery])
-
-  const handleDocumentUpload = async (candidateId, stage) => {
+  const loadWorkflowData = async () => {
     try {
-      await workflowService.addDocument(candidateId, {
-        name: stage,
-        status: 'received',
-        received_at: new Date().toISOString()
-      })
+      setIsLoading(true)
+      setError(null)
+
+      // Load application stages
+      const stageConstants = await constantsService.getApplicationStages()
+      setStages(stageConstants)
+
+      // Load candidates based on current stage
+      let candidatesData = []
       
-      // Refresh workflow data
-      const updatedWorkflows = await workflowService.getWorkflowsWithDetails()
-      setWorkflows(updatedWorkflows)
-      
-      console.log('Document uploaded for candidate:', candidateId, 'stage:', stage)
-    } catch (error) {
-      console.error('Failed to upload document:', error)
+      if (activeTab === 'by-job') {
+        // Group by job posts
+        candidatesData = await applicationService.getCandidatesByStage(selectedStage)
+      } else {
+        // All candidates for search functionality
+        candidatesData = await applicationService.getAllCandidatesInWorkflow()
+      }
+
+      // Enrich with candidate details
+      const enrichedCandidates = await Promise.all(
+        candidatesData.map(async (item) => {
+          const candidate = await candidateService.getCandidateById(item.candidate_id)
+          return {
+            ...candidate,
+            application: item,
+            job_title: item.job_title,
+            interviewed_at: item.interviewed_at,
+            interview_remarks: item.interview_remarks,
+            documents: item.documents || []
+          }
+        })
+      )
+
+      setCandidates(enrichedCandidates)
+
+      // Calculate analytics
+      const analyticsData = calculateAnalytics(enrichedCandidates)
+      setAnalytics(analyticsData)
+
+    } catch (err) {
+      setError(err)
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  const handleStatusUpdate = async (candidateId, newStatus) => {
-    try {
-      const workflow = workflows.find(w => w.candidate_id === candidateId)
-      if (workflow) {
-        await workflowService.moveToNextStage(workflow.id, newStatus)
-        
-        // Refresh workflow data
-        const updatedWorkflows = await workflowService.getWorkflowsWithDetails()
-        setWorkflows(updatedWorkflows)
+  const calculateAnalytics = (candidatesData) => {
+    const stageCounts = workflowStages.reduce((acc, stage) => {
+      acc[stage.id] = candidatesData.filter(c => c.application.stage === stage.id).length
+      return acc
+    }, {})
+
+    const totalCandidates = candidatesData.length
+    const readyToFly = stageCounts['ready-to-fly'] || 0
+    const departed = stageCounts['departed'] || 0
+    const totalProcessed = readyToFly + departed
+
+    return {
+      stageCounts,
+      totalCandidates,
+      readyToFly,
+      departed,
+      totalProcessed,
+      summary: `${totalProcessed} ready to fly of ${totalCandidates}`,
+      conversionRate: totalCandidates > 0 ? ((totalProcessed / totalCandidates) * 100).toFixed(1) : 0
+    }
+  }
+
+  const updateUrlParams = (updates) => {
+    const newParams = new URLSearchParams(searchParams)
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === undefined || value === '') {
+        newParams.delete(key)
+      } else {
+        newParams.set(key, value)
       }
-      
-      console.log('Status updated for candidate:', candidateId, 'to:', newStatus)
+    })
+    setSearchParams(newParams)
+  }
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab)
+    updateUrlParams({ tab })
+  }
+
+  const handleStageChange = (stage) => {
+    setSelectedStage(stage)
+    updateUrlParams({ stage })
+  }
+
+  const handleCandidateClick = (candidate) => {
+    setSelectedCandidate(candidate)
+    setIsSidebarOpen(true)
+  }
+
+  const handleCloseSidebar = () => {
+    setIsSidebarOpen(false)
+    setSelectedCandidate(null)
+  }
+
+  const handleUpdateStatus = async (candidateId, newStage) => {
+    try {
+      const candidate = candidates.find(c => c.id === candidateId)
+      if (candidate) {
+        await applicationService.updateApplicationStage(candidate.application.id, newStage)
+        loadWorkflowData() // Reload data
+      }
     } catch (error) {
       console.error('Failed to update status:', error)
     }
   }
 
-  const getStageColor = (stage) => {
-    const stageInfo = workflowStages.find(s => s.id === stage)
-    return stageInfo ? stageInfo.color : 'gray'
+  const handleAttachDocument = async (candidateId, document) => {
+    try {
+      await applicationService.attachDocument(candidateId, document)
+      loadWorkflowData() // Reload data
+    } catch (error) {
+      console.error('Failed to attach document:', error)
+    }
   }
 
-  const getStageLabel = (stage) => {
-    const stageInfo = workflowStages.find(s => s.id === stage)
-    return stageInfo ? stageInfo.name : stage
-  }
+  // Filter candidates based on search query (for By Applicant tab)
+  const filteredCandidates = candidates.filter(candidate => {
+    if (activeTab === 'by-job') return true
+    
+    if (!searchQuery) return true
+    
+    const query = searchQuery.toLowerCase()
+    return (
+      candidate.phone?.toLowerCase().includes(query) ||
+      candidate.passport_number?.toLowerCase().includes(query) ||
+      candidate.name?.toLowerCase().includes(query) ||
+      candidate.email?.toLowerCase().includes(query) ||
+      candidate.job_title?.toLowerCase().includes(query)
+    )
+  })
 
-  // Loading state
+  // Group candidates by job for "By Job Post" view
+  const candidatesByJob = activeTab === 'by-job' ? 
+    filteredCandidates.reduce((acc, candidate) => {
+      const jobTitle = candidate.job_title || 'Unknown Job'
+      if (!acc[jobTitle]) {
+        acc[jobTitle] = []
+      }
+      acc[jobTitle].push(candidate)
+      return acc
+    }, {}) : {}
+
   if (isLoading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-8"></div>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map(i => (
-              <div key={i} className="card p-6">
-                <div className="flex items-start space-x-4">
-                  <div className="w-12 h-12 bg-gray-200 rounded-full"></div>
-                  <div className="flex-1">
-                    <div className="h-4 bg-gray-200 rounded w-2/3 mb-2"></div>
-                    <div className="h-3 bg-gray-200 rounded w-1/2 mb-1"></div>
-                    <div className="h-3 bg-gray-200 rounded w-3/4"></div>
-                  </div>
-                </div>
-              </div>
+          <div className="h-8 bg-gray-200 rounded w-1/3 mb-6"></div>
+          <div className="h-16 bg-gray-200 rounded mb-6"></div>
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-20 bg-gray-200 rounded"></div>
+            ))}
+          </div>
+          <div className="space-y-4">
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="h-24 bg-gray-200 rounded"></div>
             ))}
           </div>
         </div>
@@ -149,7 +233,6 @@ const Workflow = () => {
     )
   }
 
-  // Error state
   if (error) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -157,10 +240,7 @@ const Workflow = () => {
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Failed to load workflow data</h2>
           <p className="text-gray-600 mb-4">{error.message}</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="btn-primary"
-          >
+          <button onClick={loadWorkflowData} className="btn-primary">
             Retry
           </button>
         </div>
@@ -171,317 +251,381 @@ const Workflow = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Workflow</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            Track candidate journey from application to final deployment
-          </p>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Workflow Pipeline</h1>
+        <p className="text-gray-600">Manage candidates through the post-interview process</p>
+      </div>
+
+      {/* Analytics */}
+      <div className="mb-8">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="card p-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-blue-100 text-sm font-medium">Total Candidates</p>
+                <p className="text-3xl font-bold">{analytics.totalCandidates || 0}</p>
+              </div>
+              <Users className="w-10 h-10 text-blue-200" />
+            </div>
+          </div>
+          
+          <div className="card p-6 bg-gradient-to-r from-green-500 to-green-600 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-green-100 text-sm font-medium">Ready to Fly</p>
+                <p className="text-3xl font-bold">{analytics.readyToFly || 0}</p>
+              </div>
+              <CheckCircle className="w-10 h-10 text-green-200" />
+            </div>
+          </div>
+          
+          <div className="card p-6 bg-gradient-to-r from-purple-500 to-purple-600 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-100 text-sm font-medium">Departed</p>
+                <p className="text-3xl font-bold">{analytics.departed || 0}</p>
+              </div>
+              <MapPin className="w-10 h-10 text-purple-200" />
+            </div>
+          </div>
+          
+          <div className="card p-6 bg-gradient-to-r from-orange-500 to-orange-600 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-orange-100 text-sm font-medium">Success Rate</p>
+                <p className="text-3xl font-bold">{analytics.conversionRate || 0}%</p>
+              </div>
+              <AlertCircle className="w-10 h-10 text-orange-200" />
+            </div>
+          </div>
         </div>
         
-        <div className="mt-4 sm:mt-0">
-          <button className="btn-primary flex items-center">
-            <Plus className="w-4 h-4 mr-2" />
-            Add to Workflow
-          </button>
+        {/* Stage Overview */}
+        <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-8 gap-3">
+          {workflowStages.slice(0, 8).map((stage) => {
+            const count = analytics.stageCounts?.[stage.id] || 0
+            const Icon = stage.icon
+            const isActive = stage.id === selectedStage
+            return (
+              <div 
+                key={stage.id} 
+                className={`card p-3 cursor-pointer transition-all hover:shadow-md ${
+                  isActive ? 'ring-2 ring-primary-500 bg-primary-50' : ''
+                }`}
+                onClick={() => handleStageChange(stage.id)}
+              >
+                <div className="text-center">
+                  <Icon className={`w-6 h-6 mx-auto mb-2 ${
+                    isActive ? 'text-primary-600' : 'text-gray-600'
+                  }`} />
+                  <p className={`text-xs font-medium mb-1 ${
+                    isActive ? 'text-primary-900' : 'text-gray-900'
+                  }`}>
+                    {stage.label}
+                  </p>
+                  <p className={`text-lg font-bold ${
+                    isActive ? 'text-primary-600' : 'text-gray-900'
+                  }`}>
+                    {count}
+                  </p>
+                </div>
+              </div>
+            )
+          })}
         </div>
+        
+        {analytics.summary && (
+          <div className="mt-6 p-4 bg-primary-50 rounded-lg border border-primary-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-primary-800 font-semibold text-lg">{analytics.summary}</p>
+                <p className="text-primary-600 text-sm mt-1">
+                  Pipeline conversion rate: {analytics.conversionRate}%
+                </p>
+              </div>
+              <div className="text-primary-600">
+                <CheckCircle className="w-8 h-8" />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Workflow Stepper */}
+      <div className="mb-8">
+        <WorkflowStepper 
+          stages={workflowStages}
+          currentStage={selectedStage}
+          onStageChange={handleStageChange}
+          stageCounts={analytics.stageCounts}
+        />
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 mb-6">
-        <nav className="-mb-px flex space-x-8">
-          <button
-            onClick={() => setActiveTab('by-job')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'by-job'
-                ? 'border-primary-500 text-primary-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <Briefcase className="w-4 h-4 mr-2 inline" />
-            By Job
-          </button>
-          <button
-            onClick={() => setActiveTab('by-applicant')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'by-applicant'
-                ? 'border-primary-500 text-primary-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <User className="w-4 h-4 mr-2 inline" />
-            By Applicant
-          </button>
-        </nav>
-      </div>
-
-      {/* Search */}
       <div className="mb-6">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <input
-            type="text"
-            placeholder="Search candidates by name, job, or status..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-          />
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8">
+            <button
+              onClick={() => handleTabChange('by-job')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'by-job'
+                  ? 'border-primary-500 text-primary-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              By Job Post
+            </button>
+            <button
+              onClick={() => handleTabChange('by-applicant')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'by-applicant'
+                  ? 'border-primary-500 text-primary-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              By Applicant
+            </button>
+          </nav>
         </div>
       </div>
 
-      {/* Content based on active tab */}
-      {activeTab === 'by-job' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {candidatesByJob.map(workflow => (
-            <div key={workflow.id} className="card p-6 hover:shadow-lg transition-shadow duration-200">
-              <div className="flex items-start space-x-4 mb-4">
-                <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-                  <span className="text-lg font-medium text-gray-600">
-                    {workflow.candidate?.name?.charAt(0) || 'U'}
-                  </span>
-                </div>
-                
-                <div className="flex-1">
-                  <h3 className="text-lg font-medium text-gray-900 mb-1">
-                    {workflow.candidate?.name || 'Unknown Candidate'}
-                  </h3>
-                  <p className="text-sm text-gray-600 mb-2">
-                    {workflow.job?.title || 'Unknown Job'} - {workflow.job?.company}
-                  </p>
-                  
-                  <div className="space-y-1">
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Phone className="w-4 h-4 mr-2" />
-                      <span>{workflow.candidate?.phone || 'N/A'}</span>
-                    </div>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <MapPin className="w-4 h-4 mr-2" />
-                      <span>{workflow.job?.country || 'N/A'}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="mb-4">
-                <span className={`chip chip-${getStageColor(workflow.stage)} text-xs`}>
-                  {getStageLabel(workflow.stage)}
-                </span>
-              </div>
-              
-              <div className="flex justify-between items-center">
-                <button
-                  onClick={() => {
-                    setSelectedCandidate(workflow.candidate)
-                    setShowSummary(true)
-                  }}
-                  className="text-sm text-primary-600 hover:text-primary-800"
-                >
-                  <Eye className="w-4 h-4 mr-1 inline" />
-                  View Details
-                </button>
-                
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleDocumentUpload(workflow.candidate_id, 'medical')}
-                    className="text-sm bg-green-100 text-green-800 px-2 py-1 rounded hover:bg-green-200 transition-colors"
-                  >
-                    <Upload className="w-3 h-3 mr-1 inline" />
-                    Upload
-                  </button>
-                  <button
-                    onClick={() => handleStatusUpdate(workflow.candidate_id, 'next_stage')}
-                    className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded hover:bg-blue-200 transition-colors"
-                  >
-                    <Check className="w-3 h-3 mr-1 inline" />
-                    Next
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
+      {/* Search (for By Applicant tab) */}
+      {activeTab === 'by-applicant' && (
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Search by phone, passport, or name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            />
+          </div>
         </div>
       )}
 
-      {activeTab === 'by-applicant' && (
-        <div className="card overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Applicant Workflow Status</h2>
+      {/* Candidates List */}
+      <div className="space-y-6">
+        {filteredCandidates.length === 0 ? (
+          <div className="card p-8 text-center">
+            <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No candidates found</h3>
+            <p className="text-gray-600">
+              {activeTab === 'by-applicant' && searchQuery
+                ? 'No candidates match your search criteria.'
+                : `No candidates in ${workflowStages.find(s => s.id === selectedStage)?.label} stage.`
+              }
+            </p>
+          </div>
+        ) : activeTab === 'by-job' ? (
+          // Group by Job Post view
+          Object.entries(candidatesByJob).map(([jobTitle, jobCandidates]) => (
+            <div key={jobTitle} className="card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                    <Briefcase className="w-5 h-5 mr-2 text-primary-600" />
+                    {jobTitle}
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {jobCandidates.length} candidate{jobCandidates.length !== 1 ? 's' : ''} in {workflowStages.find(s => s.id === selectedStage)?.label} stage
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="chip chip-blue">
+                    {jobCandidates.length}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                {jobCandidates.map((candidate) => (
+                  <CandidateWorkflowCard
+                    key={candidate.id}
+                    candidate={candidate}
+                    onCandidateClick={handleCandidateClick}
+                    onUpdateStatus={handleUpdateStatus}
+                    onAttachDocument={handleAttachDocument}
+                    workflowStages={workflowStages}
+                    showJobTitle={false}
+                    compact={true}
+                  />
+                ))}
+              </div>
+            </div>
+          ))
+        ) : (
+          // By Applicant view
+          <div className="space-y-4">
+            {filteredCandidates.map((candidate) => (
+              <CandidateWorkflowCard
+                key={candidate.id}
+                candidate={candidate}
+                onCandidateClick={handleCandidateClick}
+                onUpdateStatus={handleUpdateStatus}
+                onAttachDocument={handleAttachDocument}
+                workflowStages={workflowStages}
+                showJobTitle={true}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Candidate Summary Sidebar */}
+      <CandidateSummaryS2
+        candidate={selectedCandidate}
+        isOpen={isSidebarOpen}
+        onClose={handleCloseSidebar}
+        onUpdateStatus={handleUpdateStatus}
+        onAttachDocument={handleAttachDocument}
+        workflowStages={workflowStages}
+      />
+    </div>
+  )
+}
+
+const CandidateWorkflowCard = ({ 
+  candidate, 
+  onCandidateClick, 
+  onUpdateStatus, 
+  onAttachDocument, 
+  workflowStages,
+  showJobTitle = false,
+  compact = false
+}) => {
+  const [isUpdating, setIsUpdating] = useState(false)
+
+  const handleStatusUpdate = async (newStage) => {
+    setIsUpdating(true)
+    try {
+      await onUpdateStatus(candidate.id, newStage)
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  const currentStage = workflowStages.find(s => s.id === candidate.application.stage)
+
+  return (
+    <div className={`${compact ? 'border border-gray-200 rounded-lg p-4' : 'card p-6'} hover:shadow-md transition-shadow cursor-pointer`}>
+      <div className="flex items-start justify-between">
+        <div 
+          className="flex items-start space-x-4 flex-1"
+          onClick={() => onCandidateClick(candidate)}
+        >
+          <div className={`${compact ? 'w-10 h-10' : 'w-12 h-12'} bg-gray-200 rounded-full flex items-center justify-center`}>
+            <span className={`${compact ? 'text-sm' : 'text-lg'} font-medium text-gray-600`}>
+              {candidate.name?.charAt(0)}
+            </span>
           </div>
           
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Candidate
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Job
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Current Stage
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Last Updated
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {workflows.map(workflow => (
-                  <tr key={workflow.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center mr-3">
-                          <span className="text-sm font-medium text-gray-600">
-                            {workflow.candidate?.name?.charAt(0) || 'U'}
-                          </span>
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {workflow.candidate?.name || 'Unknown Candidate'}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {workflow.candidate?.phone}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900">
-                        {workflow.job?.title || 'Unknown Job'}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {workflow.job?.company} - {workflow.job?.country}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`chip chip-${getStageColor(workflow.stage)} text-xs`}>
-                        {getStageLabel(workflow.stage)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {workflow.updated_at ? format(new Date(workflow.updated_at), 'MMM dd, yyyy') : 'N/A'}
-                    </td>
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => {
-                          setSelectedCandidate(workflow.candidate)
-                          setShowSummary(true)
-                        }}
-                        className="text-primary-600 hover:text-primary-800 text-sm"
-                      >
-                        <Eye className="w-4 h-4 mr-1 inline" />
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Empty State */}
-      {workflows.length === 0 && (
-        <div className="card p-8 text-center">
-          <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No candidates in workflow</h3>
-          <p className="text-gray-600 mb-4">
-            Candidates will appear here once they progress through the interview stage.
-          </p>
-          <button className="btn-primary">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Candidate to Workflow
-          </button>
-        </div>
-      )}
-
-      {/* Candidate Summary Modal */}
-      {showSummary && selectedCandidate && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Workflow Summary</h2>
-              <button
-                onClick={() => {
-                  setShowSummary(false)
-                  setSelectedCandidate(null)
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <User className="w-6 h-6" />
-              </button>
+          <div className="flex-1">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className={`${compact ? 'text-base' : 'text-lg'} font-medium text-gray-900`}>
+                {candidate.name}
+              </h3>
+              {currentStage && (
+                <span className="chip chip-blue text-xs">
+                  {currentStage.label}
+                </span>
+              )}
             </div>
             
-            <div className="space-y-6">
-              {/* Basic Info */}
-              <div className="flex items-start space-x-4">
-                <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center">
-                  <span className="text-xl font-medium text-gray-600">
-                    {selectedCandidate.name?.charAt(0) || 'U'}
-                  </span>
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-medium text-gray-900">{selectedCandidate.name}</h3>
-                  <p className="text-gray-600">{selectedCandidate.age} years, {selectedCandidate.gender}</p>
-                  <div className="mt-2 space-y-1">
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Phone className="w-4 h-4 mr-2" />
-                      <span>{selectedCandidate.phone}</span>
-                    </div>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Mail className="w-4 h-4 mr-2" />
-                      <span>{selectedCandidate.email}</span>
-                    </div>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <MapPin className="w-4 h-4 mr-2" />
-                      <span>{selectedCandidate.address}</span>
-                    </div>
-                  </div>
-                </div>
+            {showJobTitle && candidate.job_title && (
+              <div className="flex items-center text-sm text-gray-600 mb-2">
+                <Briefcase className="w-4 h-4 mr-1" />
+                <span className="font-medium">{candidate.job_title}</span>
               </div>
-              
-              {/* Skills */}
-              {selectedCandidate.skills && (
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-2">Skills</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedCandidate.skills.map(skill => (
-                      <span key={skill} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {/* Experience */}
-              {selectedCandidate.experience && (
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-2">Experience</h4>
-                  <p className="text-gray-600">{selectedCandidate.experience}</p>
+            )}
+            
+            <div className={`grid ${compact ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'} gap-2 text-sm text-gray-600`}>
+              <div className="flex items-center">
+                <Phone className="w-4 h-4 mr-1" />
+                <span>{candidate.phone}</span>
+              </div>
+              {candidate.passport_number && (
+                <div className="flex items-center">
+                  <CreditCard className="w-4 h-4 mr-1" />
+                  <span>Passport: {candidate.passport_number}</span>
                 </div>
               )}
             </div>
             
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={() => {
-                  setShowSummary(false)
-                  setSelectedCandidate(null)
-                }}
-                className="btn-secondary"
-              >
-                Close
-              </button>
-            </div>
+            {candidate.interviewed_at && (
+              <div className="mt-2 flex items-center text-sm text-gray-600">
+                <Clock className="w-4 h-4 mr-1" />
+                <span className="font-medium">Interviewed:</span> 
+                <span className="ml-1">{format(new Date(candidate.interviewed_at), 'MMM dd, yyyy HH:mm')}</span>
+              </div>
+            )}
+            
+            {candidate.interview_remarks && !compact && (
+              <div className="mt-2 text-sm text-gray-600">
+                <span className="font-medium">Remarks:</span> 
+                <span className="ml-1">{candidate.interview_remarks.substring(0, 100)}{candidate.interview_remarks.length > 100 ? '...' : ''}</span>
+              </div>
+            )}
+            
+            {candidate.documents && candidate.documents.length > 0 && (
+              <div className="mt-2 flex items-center">
+                <Paperclip className="w-4 h-4 mr-1 text-gray-400" />
+                <span className="text-xs text-gray-500">
+                  {candidate.documents.length} document{candidate.documents.length !== 1 ? 's' : ''} attached
+                </span>
+              </div>
+            )}
           </div>
         </div>
-      )}
+        
+        <div className="flex items-center space-x-2 ml-4">
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              // Handle document attachment - could open a modal or file picker
+              const input = document.createElement('input')
+              input.type = 'file'
+              input.multiple = true
+              input.accept = '.pdf,.doc,.docx,.jpg,.jpeg,.png'
+              input.onchange = (event) => {
+                const files = Array.from(event.target.files)
+                files.forEach(file => {
+                  onAttachDocument(candidate.id, {
+                    name: file.name,
+                    size: file.size,
+                    type: file.type,
+                    stage: candidate.application?.stage,
+                    uploaded_at: new Date().toISOString()
+                  })
+                })
+              }
+              input.click()
+            }}
+            className="btn-secondary text-xs px-3 py-1"
+            title="Attach documents"
+          >
+            <Upload className="w-3 h-3 mr-1" />
+            {compact ? '' : 'Attach'}
+          </button>
+          
+          <select
+            value={candidate.application?.stage || ''}
+            onChange={(e) => handleStatusUpdate(e.target.value)}
+            disabled={isUpdating}
+            className="text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+            onClick={(e) => e.stopPropagation()}
+            title="Update candidate status"
+          >
+            {workflowStages.map((stage) => (
+              <option key={stage.id} value={stage.id}>
+                {stage.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
     </div>
   )
 }

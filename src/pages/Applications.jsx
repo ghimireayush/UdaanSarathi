@@ -16,7 +16,14 @@ import {
   FileText,
   Star,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  MoreVertical,
+  ArrowRight,
+  Download,
+  GraduationCap,
+  Briefcase,
+  Home,
+  Heart
 } from 'lucide-react'
 import { applicationService, jobService, constantsService } from '../services/index.js'
 import { format } from 'date-fns'
@@ -32,6 +39,11 @@ const Applications = () => {
   const [selectedApplications, setSelectedApplications] = useState(new Set())
   const [showSummary, setShowSummary] = useState(false)
   const [selectedCandidate, setSelectedCandidate] = useState(null)
+  const [selectedApplication, setSelectedApplication] = useState(null)
+  const [showStageModal, setShowStageModal] = useState(false)
+  const [showRejectModal, setShowRejectModal] = useState(false)
+  const [rejectionReason, setRejectionReason] = useState('')
+  const [newStage, setNewStage] = useState('')
   const [applications, setApplications] = useState([])
   const [jobs, setJobs] = useState([])
   const [applicationStages, setApplicationStages] = useState({})
@@ -85,19 +97,48 @@ const Applications = () => {
     setSelectedApplications(newSelected)
   }
 
-  const handleUpdateStage = async (applicationId, newStage) => {
+  const handleUpdateStage = async (applicationId, targetStage, reason = null) => {
     try {
       setIsUpdating(true)
-      await applicationService.updateApplicationStage(applicationId, newStage)
       
-      // Refresh data
+      if (targetStage === applicationStages.REJECTED && reason) {
+        await applicationService.rejectApplication(applicationId, reason)
+      } else {
+        await applicationService.updateApplicationStage(applicationId, targetStage)
+      }
+      
+      // Refresh data to reflect changes immediately
       const updatedApplications = await applicationService.getApplicationsWithDetails(filters)
       setApplications(updatedApplications)
+      
+      // Close modals
+      setShowStageModal(false)
+      setShowRejectModal(false)
+      setSelectedApplication(null)
+      setRejectionReason('')
+      setNewStage('')
+      
     } catch (error) {
       console.error('Failed to update application stage:', error)
     } finally {
       setIsUpdating(false)
     }
+  }
+
+  const handleOpenStageModal = (application, stage) => {
+    setSelectedApplication(application)
+    setNewStage(stage)
+    if (stage === applicationStages.REJECTED) {
+      setShowRejectModal(true)
+    } else {
+      setShowStageModal(true)
+    }
+  }
+
+  const handleToggleShortlist = async (application) => {
+    const isCurrentlyShortlisted = application.stage === applicationStages.SHORTLISTED
+    const targetStage = isCurrentlyShortlisted ? applicationStages.APPLIED : applicationStages.SHORTLISTED
+    await handleUpdateStage(application.id, targetStage)
   }
 
   const handleBulkAction = async (action) => {
@@ -359,37 +400,55 @@ const Applications = () => {
               {/* Actions */}
               <div className="flex justify-between items-center">
                 <div className="flex space-x-2">
-                  {application.stage === applicationStages.APPLIED && (
-                    <button
-                      onClick={() => handleUpdateStage(application.id, applicationStages.SHORTLISTED)}
-                      className="text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded hover:bg-yellow-200 transition-colors"
-                      disabled={isUpdating}
-                    >
-                      Shortlist
-                    </button>
-                  )}
+                  {/* Shortlist Toggle */}
+                  <button
+                    onClick={() => handleToggleShortlist(application)}
+                    className={`text-sm px-3 py-1 rounded transition-colors ${
+                      application.stage === applicationStages.SHORTLISTED
+                        ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                    disabled={isUpdating}
+                  >
+                    <UserCheck className="w-3 h-3 mr-1 inline" />
+                    {application.stage === applicationStages.SHORTLISTED ? 'Shortlisted' : 'Shortlist'}
+                  </button>
                   
-                  {(application.stage === applicationStages.SHORTLISTED || application.stage === applicationStages.APPLIED) && (
+                  {/* Stage Actions Dropdown */}
+                  <div className="relative">
                     <button
-                      onClick={() => handleUpdateStage(application.id, applicationStages.SCHEDULED)}
-                      className="text-sm bg-purple-100 text-purple-800 px-3 py-1 rounded hover:bg-purple-200 transition-colors"
+                      onClick={() => handleOpenStageModal(application, null)}
+                      className="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded hover:bg-blue-200 transition-colors flex items-center"
                       disabled={isUpdating}
                     >
-                      Schedule
+                      <ArrowRight className="w-3 h-3 mr-1" />
+                      Move Stage
                     </button>
-                  )}
+                  </div>
                 </div>
                 
-                <button
-                  onClick={() => {
-                    setSelectedCandidate(application.candidate)
-                    setShowSummary(true)
-                  }}
-                  className="text-sm text-primary-600 hover:text-primary-800"
-                >
-                  <Eye className="w-4 h-4 mr-1 inline" />
-                  View
-                </button>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => {
+                      setSelectedCandidate(application.candidate)
+                      setSelectedApplication(application)
+                      setShowSummary(true)
+                    }}
+                    className="text-sm text-primary-600 hover:text-primary-800"
+                  >
+                    <Eye className="w-4 h-4 mr-1 inline" />
+                    Summary
+                  </button>
+                  
+                  <button
+                    onClick={() => handleOpenStageModal(application, applicationStages.REJECTED)}
+                    className="text-sm text-red-600 hover:text-red-800"
+                    disabled={isUpdating}
+                  >
+                    <X className="w-4 h-4 mr-1 inline" />
+                    Reject
+                  </button>
+                </div>
               </div>
             </div>
           ))
@@ -404,16 +463,17 @@ const Applications = () => {
         )}
       </div>
 
-      {/* Candidate Summary Modal */}
+      {/* Enhanced Candidate Summary Modal */}
       {showSummary && selectedCandidate && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Candidate Summary</h2>
+          <div className="bg-white rounded-lg w-full max-w-4xl max-h-screen overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">Applicant Summary</h2>
               <button
                 onClick={() => {
                   setShowSummary(false)
                   setSelectedCandidate(null)
+                  setSelectedApplication(null)
                 }}
                 className="text-gray-400 hover:text-gray-600"
               >
@@ -421,67 +481,319 @@ const Applications = () => {
               </button>
             </div>
             
-            <div className="space-y-6">
-              {/* Basic Info */}
-              <div className="flex items-start space-x-4">
-                <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center">
-                  <span className="text-xl font-medium text-gray-600">
+            <div className="p-6 space-y-8">
+              {/* Profile Section */}
+              <div className="flex items-start space-x-6">
+                <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center">
+                  <span className="text-2xl font-medium text-gray-600">
                     {selectedCandidate.name?.charAt(0) || 'U'}
                   </span>
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-medium text-gray-900">{selectedCandidate.name}</h3>
-                  <p className="text-gray-600">{selectedCandidate.age} years, {selectedCandidate.gender}</p>
-                  <div className="mt-2 space-y-1">
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Phone className="w-4 h-4 mr-2" />
-                      <span>{selectedCandidate.phone}</span>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">{selectedCandidate.name}</h3>
+                  {selectedCandidate.priority_score && (
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Star className="w-5 h-5 text-yellow-500" />
+                      <span className="text-lg font-medium text-gray-700">Priority Score: {selectedCandidate.priority_score}%</span>
                     </div>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Mail className="w-4 h-4 mr-2" />
-                      <span>{selectedCandidate.email}</span>
-                    </div>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <MapPin className="w-4 h-4 mr-2" />
-                      <span>{selectedCandidate.address}</span>
-                    </div>
+                  )}
+                  <div className="text-sm text-gray-500">
+                    Applied {selectedApplication?.applied_at ? format(new Date(selectedApplication.applied_at), 'MMM dd, yyyy') : 'Unknown date'}
+                  </div>
+                </div>
+                <div className="text-right">
+                  {selectedApplication && (
+                    <span className={`chip ${getStageColor(selectedApplication.stage)}`}>
+                      {getStageLabel(selectedApplication.stage)}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Contact Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="flex items-center space-x-3">
+                  <Phone className="w-5 h-5 text-gray-400" />
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">Phone</div>
+                    <div className="text-sm text-gray-600">{selectedCandidate.phone}</div>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <Mail className="w-5 h-5 text-gray-400" />
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">Email</div>
+                    <div className="text-sm text-gray-600">{selectedCandidate.email}</div>
                   </div>
                 </div>
               </div>
-              
+
+              {/* Job Application Details */}
+              {selectedApplication && (
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                    <Briefcase className="w-5 h-5 mr-2" />
+                    Application Details
+                  </h4>
+                  <div className="bg-blue-50 rounded-lg p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">Job Title</div>
+                        <div className="text-sm text-gray-600">{selectedApplication.job?.title}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">Company</div>
+                        <div className="text-sm text-gray-600">{selectedApplication.job?.company}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">Location</div>
+                        <div className="text-sm text-gray-600">{selectedApplication.job?.country}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">Application Status</div>
+                        <div className="text-sm text-gray-600">{getStageLabel(selectedApplication.stage)}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Address */}
+              <div>
+                <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                  <Home className="w-5 h-5 mr-2" />
+                  Address
+                </h4>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-gray-700">{selectedCandidate.address}</p>
+                </div>
+              </div>
+
               {/* Skills */}
               {selectedCandidate.skills && (
                 <div>
-                  <h4 className="font-medium text-gray-900 mb-2">Skills</h4>
+                  <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                    <Star className="w-5 h-5 mr-2" />
+                    Skills
+                  </h4>
                   <div className="flex flex-wrap gap-2">
                     {selectedCandidate.skills.map(skill => (
-                      <span key={skill} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+                      <span key={skill} className="chip chip-blue">
                         {skill}
                       </span>
                     ))}
                   </div>
                 </div>
               )}
-              
-              {/* Experience */}
-              {selectedCandidate.experience && (
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-2">Experience</h4>
-                  <p className="text-gray-600">{selectedCandidate.experience}</p>
+
+              {/* Education */}
+              <div>
+                <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                  <GraduationCap className="w-5 h-5 mr-2" />
+                  Education
+                </h4>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-gray-700">{selectedCandidate.education || 'Not specified'}</p>
                 </div>
-              )}
+              </div>
+
+              {/* Experience */}
+              <div>
+                <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                  <FileText className="w-5 h-5 mr-2" />
+                  Experience
+                </h4>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-gray-700">{selectedCandidate.experience}</p>
+                </div>
+              </div>
+
+              {/* CV Section */}
+              <div>
+                <h4 className="text-lg font-semibold text-gray-900 mb-3">CV</h4>
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <FileText className="w-8 h-8 text-gray-400" />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {selectedCandidate.name}_CV.pdf
+                        </div>
+                        <div className="text-xs text-gray-500">PDF • 2.3 MB</div>
+                      </div>
+                    </div>
+                    <button className="btn-secondary text-sm">
+                      <Download className="w-4 h-4 mr-2" />
+                      Download
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
             
-            <div className="flex justify-end space-x-3 mt-6">
+            {/* Actions Footer */}
+            <div className="border-t border-gray-200 p-6">
+              <div className="flex justify-between">
+                <div className="flex space-x-3">
+                  {selectedApplication && (
+                    <>
+                      <button
+                        onClick={() => handleToggleShortlist(selectedApplication)}
+                        className={`px-4 py-2 rounded-md font-medium transition-colors ${
+                          selectedApplication.stage === applicationStages.SHORTLISTED
+                            ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                            : 'bg-blue-600 hover:bg-blue-700 text-white'
+                        }`}
+                      >
+                        <UserCheck className="w-4 h-4 mr-2 inline" />
+                        {selectedApplication.stage === applicationStages.SHORTLISTED ? 'Remove from Shortlist' : 'Add to Shortlist'}
+                      </button>
+                      
+                      <button
+                        onClick={() => handleOpenStageModal(selectedApplication, null)}
+                        className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md font-medium transition-colors"
+                      >
+                        <ArrowRight className="w-4 h-4 mr-2 inline" />
+                        Move to Stage
+                      </button>
+                    </>
+                  )}
+                </div>
+                
+                <button
+                  onClick={() => {
+                    setShowSummary(false)
+                    setSelectedCandidate(null)
+                    setSelectedApplication(null)
+                  }}
+                  className="btn-secondary"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stage Change Modal */}
+      {showStageModal && selectedApplication && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900">Move to Stage</h3>
               <button
                 onClick={() => {
-                  setShowSummary(false)
-                  setSelectedCandidate(null)
+                  setShowStageModal(false)
+                  setSelectedApplication(null)
+                  setNewStage('')
                 }}
-                className="btn-secondary"
+                className="text-gray-400 hover:text-gray-600"
               >
-                Close
+                <X className="w-5 h-5" />
               </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select New Stage
+                </label>
+                <select
+                  value={newStage}
+                  onChange={(e) => setNewStage(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Select a stage...</option>
+                  <option value={applicationStages.APPLIED}>Applied</option>
+                  <option value={applicationStages.SHORTLISTED}>Shortlisted</option>
+                  <option value={applicationStages.SCHEDULED}>Scheduled</option>
+                  <option value={applicationStages.INTERVIEWED}>Interviewed</option>
+                  <option value={applicationStages.SELECTED}>Selected</option>
+                </select>
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowStageModal(false)
+                    setSelectedApplication(null)
+                    setNewStage('')
+                  }}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleUpdateStage(selectedApplication.id, newStage)}
+                  disabled={!newStage || isUpdating}
+                  className="btn-primary disabled:opacity-50"
+                >
+                  {isUpdating ? 'Updating...' : 'Move to Stage'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rejection Modal */}
+      {showRejectModal && selectedApplication && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900">Reject Application</h3>
+              <button
+                onClick={() => {
+                  setShowRejectModal(false)
+                  setSelectedApplication(null)
+                  setRejectionReason('')
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Rejection Reason
+                </label>
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="Please provide a reason for rejection..."
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                />
+              </div>
+              
+              <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
+                <p className="text-sm text-yellow-800">
+                  ⚠️ This action cannot be undone. The candidate will be notified of the rejection.
+                </p>
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowRejectModal(false)
+                    setSelectedApplication(null)
+                    setRejectionReason('')
+                  }}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleUpdateStage(selectedApplication.id, applicationStages.REJECTED, rejectionReason)}
+                  disabled={!rejectionReason.trim() || isUpdating}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md transition-colors disabled:opacity-50"
+                >
+                  {isUpdating ? 'Rejecting...' : 'Confirm Rejection'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -438,6 +438,106 @@ class ApplicationService {
     
     return duplicates
   }
+
+  /**
+   * Get candidates by workflow stage with job details
+   * @param {string} stage - Workflow stage
+   * @returns {Promise<Array>} Array of candidates with application and job details
+   */
+  async getCandidatesByStage(stage) {
+    await delay(300)
+    const applications = applicationsCache.filter(app => app.stage === stage)
+    const jobs = await jobService.getJobs()
+    
+    return applications.map(app => {
+      const job = jobs.find(j => j.id === app.job_id)
+      return {
+        ...app,
+        job_title: job?.title,
+        job_company: job?.company,
+        interviewed_at: app.interviewed_at,
+        interview_remarks: app.interview_remarks || app.recruiter_notes || app.notes,
+        interview_type: app.interview_type,
+        documents: Array.isArray(app.documents) ? app.documents : []
+      }
+    })
+  }
+
+  /**
+   * Get all candidates in workflow (post-interview stages)
+   * @returns {Promise<Array>} Array of all workflow candidates
+   */
+  async getAllCandidatesInWorkflow() {
+    await delay(300)
+    const constants = await constantsService.getApplicationStages()
+    const workflowStages = [
+      'applied',
+      'shortlisted',
+      'interview-scheduled',
+      'interview-passed',
+      'medical-scheduled',
+      'medical-passed',
+      'visa-application',
+      'visa-approved',
+      'police-clearance',
+      'embassy-attestation',
+      'travel-documents',
+      'flight-booking',
+      'pre-departure',
+      'departed',
+      'ready-to-fly'
+    ]
+    
+    const applications = applicationsCache.filter(app => 
+      workflowStages.includes(app.stage)
+    )
+    
+    const jobs = await jobService.getJobs()
+    
+    return applications.map(app => {
+      const job = jobs.find(j => j.id === app.job_id)
+      return {
+        ...app,
+        job_title: job?.title,
+        job_company: job?.company,
+        interviewed_at: app.interviewed_at,
+        interview_remarks: app.interview_remarks || app.recruiter_notes || app.notes,
+        interview_type: app.interview_type,
+        documents: Array.isArray(app.documents) ? app.documents : []
+      }
+    })
+  }
+
+  /**
+   * Attach document to candidate application
+   * @param {string} candidateId - Candidate ID
+   * @param {Object} document - Document details
+   * @returns {Promise<boolean>} Success status
+   */
+  async attachDocument(candidateId, document) {
+    await delay(300)
+    if (shouldSimulateError()) {
+      throw new Error('Failed to attach document')
+    }
+
+    const application = applicationsCache.find(app => app.candidate_id === candidateId)
+    if (!application) {
+      return false
+    }
+
+    if (!application.documents) {
+      application.documents = []
+    }
+
+    const newDocument = {
+      id: `doc_${Date.now()}`,
+      ...document,
+      uploaded_at: new Date().toISOString()
+    }
+
+    application.documents.push(newDocument)
+    return true
+  }
 }
 
 // Create and export singleton instance
