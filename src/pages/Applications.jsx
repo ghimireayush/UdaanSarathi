@@ -67,12 +67,12 @@ const Applications = () => {
   const [isUpdating, setIsUpdating] = useState(false)
   const [loadTime, setLoadTime] = useState(null)
   const [viewMode, setViewMode] = useState('grid') // 'grid' or 'list'
-  
+
   // Toast notification states
   const [showToast, setShowToast] = useState(false)
   const [toastMessage, setToastMessage] = useState('')
   const [toastType, setToastType] = useState('success') // 'success', 'error', 'info'
-  
+
   // Additional state for bulk rejection modal
   const [showBulkRejectModal, setShowBulkRejectModal] = useState(false)
   const [bulkRejectionReason, setBulkRejectionReason] = useState('')
@@ -92,7 +92,7 @@ const Applications = () => {
     setToastMessage(message)
     setToastType(type)
     setShowToast(true)
-    
+
     // Auto-hide after 4 seconds for success, 5 seconds for error
     const delay = type === 'error' ? 5000 : 4000
     setTimeout(() => {
@@ -197,7 +197,7 @@ const Applications = () => {
       // Don't allow selection of rejected applications
       return
     }
-    
+
     const newSelected = new Set(selectedApplications)
     if (newSelected.has(applicationId)) {
       newSelected.delete(applicationId)
@@ -227,9 +227,9 @@ const Applications = () => {
       }
 
       // Only update UI after successful API call
-      setApplications(prevApplications => 
-        prevApplications.map(app => 
-          app.id === applicationId 
+      setApplications(prevApplications =>
+        prevApplications.map(app =>
+          app.id === applicationId
             ? { ...app, stage: targetStage, updated_at: new Date().toISOString() }
             : app
         )
@@ -276,29 +276,29 @@ const Applications = () => {
   const handleToggleShortlist = async (application) => {
     try {
       setShortlistingApps(prev => new Set([...prev, application.id]))
-      
+
       const isCurrentlyShortlisted = application.stage === applicationStages.SHORTLISTED
       const targetStage = isCurrentlyShortlisted ? applicationStages.APPLIED : applicationStages.SHORTLISTED
-      
+
       // Perform the actual API call first
       await applicationService.updateApplicationStage(application.id, targetStage)
-      
+
       // Update UI after successful API call
-      setApplications(prevApplications => 
-        prevApplications.map(app => 
-          app.id === application.id 
+      setApplications(prevApplications =>
+        prevApplications.map(app =>
+          app.id === application.id
             ? { ...app, stage: targetStage, updated_at: new Date().toISOString() }
             : app
         )
       )
-      
+
       // Show success notification
       if (isCurrentlyShortlisted) {
         showToastNotification('✅ Candidate removed from shortlist!', 'success')
       } else {
         showToastNotification('✅ Candidate shortlisted successfully!', 'success')
       }
-      
+
     } catch (err) {
       console.error('Failed to toggle shortlist:', err)
       showToastNotification('❌ Failed to update shortlist status. Please try again.', 'error')
@@ -329,16 +329,16 @@ const Applications = () => {
         for (const appId of applicationIds) {
           await applicationService.updateApplicationStage(appId, applicationStages.SHORTLISTED)
         }
-        
+
         // Update UI after successful API calls
-        setApplications(prevApplications => 
-          prevApplications.map(app => 
+        setApplications(prevApplications =>
+          prevApplications.map(app =>
             applicationIds.includes(app.id)
               ? { ...app, stage: applicationStages.SHORTLISTED, updated_at: new Date().toISOString() }
               : app
           )
         )
-        
+
         showToastNotification(`✅ ${applicationIds.length} applications shortlisted successfully!`, 'success')
       }
 
@@ -362,19 +362,19 @@ const Applications = () => {
       for (const appId of applicationIds) {
         await applicationService.rejectApplication(appId, bulkRejectionReason)
       }
-      
+
       // Update UI after successful API calls
-      setApplications(prevApplications => 
-        prevApplications.map(app => 
+      setApplications(prevApplications =>
+        prevApplications.map(app =>
           applicationIds.includes(app.id)
             ? { ...app, stage: applicationStages.REJECTED, updated_at: new Date().toISOString() }
             : app
         )
       )
-      
+
       showToastNotification(`❌ ${applicationIds.length} applications rejected successfully!`, 'success')
       setSelectedApplications(new Set())
-      
+
       // Close modal and reset
       setShowBulkRejectModal(false)
       setBulkRejectionReason('')
@@ -451,7 +451,7 @@ const Applications = () => {
   // Handle select all applications (excluding rejected ones)
   const handleSelectAll = () => {
     const selectableApplications = applications.filter(app => app.stage !== applicationStages.REJECTED)
-    
+
     if (selectedApplications.size === selectableApplications.length) {
       setSelectedApplications(new Set())
     } else {
@@ -527,87 +527,104 @@ const Applications = () => {
             )}
 
             {/* Actions */}
-            <div className="flex justify-between items-start pt-4">
+            <div className="pt-4">
               {application.stage === applicationStages.REJECTED ? (
                 // Show disabled state for rejected applications
-                <div className="flex flex-col space-y-3">
-                  <div className="px-4 py-2 text-xs text-gray-500 bg-gray-100 rounded-lg border border-gray-200 text-center font-medium">
+                <div className="flex flex-col space-y-2">
+                  <div className="px-3 py-2 text-xs text-gray-500 bg-gray-100 rounded-lg border border-gray-200 text-center font-medium">
                     Application Rejected
                   </div>
-                </div>
-              ) : (
-                <div className="flex flex-col space-y-3">
-                  {/* Shortlist Toggle */}
                   <InteractiveButton
                     onClick={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
-                      handleToggleShortlist(application)
-                    }}
-                    variant={application.stage === applicationStages.SHORTLISTED ? 'warning' : 'secondary'}
-                    size="sm"
-                    disabled={shortlistingApps.has(application.id)}
-                    loading={shortlistingApps.has(application.id)}
-                    icon={UserCheck}
-                    className="shadow-sm hover:shadow-md transition-shadow duration-200"
-                  >
-                    {application.stage === applicationStages.SHORTLISTED ? 'Shortlisted' : 'Shortlist'}
-                  </InteractiveButton>
-
-                  {/* Stage Actions */}
-                  <InteractiveButton
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      handleOpenStageModal(application, null)
-                    }}
-                    variant="secondary"
-                    size="sm"
-                    disabled={movingStageApps.has(application.id)}
-                    loading={movingStageApps.has(application.id)}
-                    icon={ArrowRight}
-                    className="shadow-sm hover:shadow-md transition-shadow duration-200"
-                  >
-                    Move Stage
-                  </InteractiveButton>
-                </div>
-              )}
-
-              <div className="flex flex-col space-y-3">
-                <InteractiveButton
-                  onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    setSelectedCandidate(application.candidate)
-                    setSelectedApplication(application)
-                    setShowSummary(true)
-                  }}
-                  variant="ghost"
-                  size="sm"
-                  icon={Eye}
-                  className="shadow-sm hover:shadow-md transition-shadow duration-200 border border-gray-200"
-                >
-                  Summary
-                </InteractiveButton>
-
-                {application.stage !== applicationStages.REJECTED && (
-                  <InteractiveButton
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      handleOpenStageModal(application, applicationStages.REJECTED)
+                      setSelectedCandidate(application.candidate)
+                      setSelectedApplication(application)
+                      setShowSummary(true)
                     }}
                     variant="ghost"
                     size="sm"
-                    disabled={rejectingApps.has(application.id)}
-                    loading={rejectingApps.has(application.id)}
-                    icon={X}
-                    className="text-red-600 hover:text-red-800 shadow-sm hover:shadow-md transition-shadow duration-200 border border-red-200 hover:border-red-300"
+                    icon={Eye}
+                    className="w-full shadow-sm hover:shadow-md transition-shadow duration-200 border border-gray-200"
                   >
-                    Reject
+                    View Summary
                   </InteractiveButton>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {/* Left column */}
+                  <div className="flex flex-col space-y-2">
+                    {/* Shortlist Toggle */}
+                    <InteractiveButton
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleToggleShortlist(application)
+                      }}
+                      variant={application.stage === applicationStages.SHORTLISTED ? 'warning' : 'secondary'}
+                      size="sm"
+                      disabled={shortlistingApps.has(application.id)}
+                      loading={shortlistingApps.has(application.id)}
+                      icon={UserCheck}
+                      className="w-full shadow-sm hover:shadow-md transition-shadow duration-200"
+                    >
+                      {application.stage === applicationStages.SHORTLISTED ? 'Shortlisted' : 'Shortlist'}
+                    </InteractiveButton>
+
+                    {/* Stage Actions */}
+                    <InteractiveButton
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleOpenStageModal(application, null)
+                      }}
+                      variant="secondary"
+                      size="sm"
+                      disabled={movingStageApps.has(application.id)}
+                      loading={movingStageApps.has(application.id)}
+                      icon={ArrowRight}
+                      className="w-full shadow-sm hover:shadow-md transition-shadow duration-200"
+                    >
+                      Move Stage
+                    </InteractiveButton>
+                  </div>
+
+                  {/* Right column */}
+                  <div className="flex flex-col space-y-2">
+                    <InteractiveButton
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setSelectedCandidate(application.candidate)
+                        setSelectedApplication(application)
+                        setShowSummary(true)
+                      }}
+                      variant="ghost"
+                      size="sm"
+                      icon={Eye}
+                      className="w-full shadow-sm hover:shadow-md transition-shadow duration-200 border border-gray-200"
+                    >
+                      Summary
+                    </InteractiveButton>
+
+                    <InteractiveButton
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleOpenStageModal(application, applicationStages.REJECTED)
+                      }}
+                      variant="ghost"
+                      size="sm"
+                      disabled={rejectingApps.has(application.id)}
+                      loading={rejectingApps.has(application.id)}
+                      icon={X}
+                      className="w-full text-red-600 hover:text-red-800 shadow-sm hover:shadow-md transition-shadow duration-200 border border-red-200 hover:border-red-300"
+                    >
+                      Reject
+                    </InteractiveButton>
+                  </div>
+                </div>
+              )}
             </div>
           </InteractiveCard>
         ))
@@ -626,183 +643,191 @@ const Applications = () => {
   // Render list view
   const renderListView = () => (
     <div className="card overflow-hidden">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              <input
-                type="checkbox"
-                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-              />
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Candidate
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Job
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Contact
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Applied Date
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Stage
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {applications.length > 0 ? (
-            applications.map(application => (
-              <tr key={application.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <input
-                    type="checkbox"
-                    checked={selectedApplications.has(application.id)}
-                    onChange={() => handleApplicationSelect(application.id)}
-                    disabled={application.stage === applicationStages.REJECTED}
-                    className={`rounded border-gray-300 text-primary-600 focus:ring-primary-500 ${
-                      application.stage === applicationStages.REJECTED 
-                        ? 'opacity-30 cursor-not-allowed' 
+      <div className="overflow-hidden">
+        <table className="w-full table-fixed divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th scope="col" className="w-12 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <input
+                  type="checkbox"
+                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+              </th>
+              <th scope="col" className="w-1/4 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Candidate
+              </th>
+              <th scope="col" className="w-1/6 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Job
+              </th>
+              <th scope="col" className="w-1/6 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Contact
+              </th>
+              <th scope="col" className="w-20 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Date
+              </th>
+              <th scope="col" className="w-20 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Stage
+              </th>
+              <th scope="col" className="w-32 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {applications.length > 0 ? (
+              applications.map(application => (
+                <tr key={application.id} className="hover:bg-gray-50">
+                  <td className="px-2 py-3 text-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedApplications.has(application.id)}
+                      onChange={() => handleApplicationSelect(application.id)}
+                      disabled={application.stage === applicationStages.REJECTED}
+                      className={`rounded border-gray-300 text-primary-600 focus:ring-primary-500 ${application.stage === applicationStages.REJECTED
+                        ? 'opacity-30 cursor-not-allowed'
                         : ''
-                    }`}
-                    title={application.stage === applicationStages.REJECTED ? 'Rejected applications cannot be selected' : ''}
-                  />
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0 h-10 w-10">
-                      <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
-                        <span className="text-lg font-medium text-primary-600">
-                          {application.candidate?.name?.charAt(0) || 'U'}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="ml-4">
-                      <div className="text-sm font-medium text-gray-900">
-                        {application.candidate?.name || 'Unknown Candidate'}
-                      </div>
-                      {application.candidate?.skills && (
-                        <div className="text-sm text-gray-500">
-                          {application.candidate.skills.slice(0, 2).join(', ')}
-                          {application.candidate.skills.length > 2 && ` +${application.candidate.skills.length - 2} more`}
+                        }`}
+                      title={application.stage === applicationStages.REJECTED ? 'Rejected applications cannot be selected' : ''}
+                    />
+                  </td>
+                  <td className="px-2 py-3">
+                    <div className="flex items-center space-x-2">
+                      <div className="flex-shrink-0 h-8 w-8">
+                        <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
+                          <span className="text-sm font-medium text-primary-600">
+                            {application.candidate?.name?.charAt(0) || 'U'}
+                          </span>
                         </div>
-                      )}
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">
-                    <Link to={`/jobs/${application.job?.id}`} className="text-primary-600 hover:text-primary-800">
-                      {application.job?.title || 'Unknown Job'}
-                    </Link>
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    {application.job?.company || 'Unknown Company'}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{application.candidate?.phone || 'N/A'}</div>
-                  <div className="text-sm text-gray-500">{application.candidate?.email || 'N/A'}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {application.applied_at ? format(new Date(application.applied_at), 'MMM dd, yyyy') : 'Unknown date'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`chip ${getStageColor(application.stage)} text-xs`}>
-                    {getStageLabel(application.stage)}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  {application.stage === applicationStages.REJECTED ? (
-                    // Show disabled state for rejected applications
-                    <div className="flex items-center space-x-2">
-                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded border">
-                        No Actions Available
-                      </span>
-                      <button
-                        onClick={() => {
-                          setSelectedCandidate(application.candidate)
-                          setSelectedApplication(application)
-                          setShowSummary(true)
-                        }}
-                        className="text-primary-600 hover:text-primary-900"
-                        title="View Summary"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    // Show normal actions for non-rejected applications
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => handleToggleShortlist(application)}
-                        className={`${application.stage === applicationStages.SHORTLISTED ? 'text-yellow-600' : 'text-gray-600 hover:text-gray-900'}`}
-                        disabled={shortlistingApps.has(application.id)}
-                        title={shortlistingApps.has(application.id) ? 'Updating...' : 'Toggle Shortlist'}
-                      >
-                        {shortlistingApps.has(application.id) ? (
-                          <div className="animate-spin w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full" />
-                        ) : (
-                          <UserCheck className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium text-gray-900 truncate">
+                          {application.candidate?.name || 'Unknown'}
+                        </div>
+                        {application.candidate?.skills && (
+                          <div className="text-xs text-gray-500 truncate">
+                            {application.candidate.skills.slice(0, 1).join(', ')}
+                            {application.candidate.skills.length > 1 && ` +${application.candidate.skills.length - 1}`}
+                          </div>
                         )}
-                      </button>
-                      <button
-                        onClick={() => handleOpenStageModal(application, null)}
-                        className="text-blue-600 hover:text-blue-900"
-                        disabled={movingStageApps.has(application.id)}
-                        title={movingStageApps.has(application.id) ? 'Moving...' : 'Move Stage'}
-                      >
-                        {movingStageApps.has(application.id) ? (
-                          <div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full" />
-                        ) : (
-                          <ArrowRight className="w-4 h-4" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedCandidate(application.candidate)
-                          setSelectedApplication(application)
-                          setShowSummary(true)
-                        }}
-                        className="text-primary-600 hover:text-primary-900"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleOpenStageModal(application, applicationStages.REJECTED)}
-                        className="text-red-600 hover:text-red-900"
-                        disabled={rejectingApps.has(application.id)}
-                        title={rejectingApps.has(application.id) ? 'Rejecting...' : 'Reject'}
-                      >
-                        {rejectingApps.has(application.id) ? (
-                          <div className="animate-spin w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full" />
-                        ) : (
-                          <X className="w-4 h-4" />
-                        )}
-                      </button>
+                      </div>
                     </div>
-                  )}
+                  </td>
+                  <td className="px-2 py-3">
+                    <div className="text-sm text-gray-900 truncate">
+                      <Link to={`/jobs/${application.job?.id}`} className="text-primary-600 hover:text-primary-800">
+                        {application.job?.title || 'Unknown Job'}
+                      </Link>
+                    </div>
+                    <div className="text-xs text-gray-500 truncate">
+                      {application.job?.company || 'Unknown Company'}
+                    </div>
+                  </td>
+                  <td className="px-2 py-3">
+                    <div className="text-xs text-gray-900 truncate">{application.candidate?.phone || 'N/A'}</div>
+                    <div className="text-xs text-gray-500 truncate">{application.candidate?.email || 'N/A'}</div>
+                  </td>
+                  <td className="px-2 py-3 text-xs text-gray-500">
+                    {application.applied_at ? format(new Date(application.applied_at), 'MMM dd') : 'N/A'}
+                  </td>
+                  <td className="px-2 py-3">
+                    <span className={`chip ${getStageColor(application.stage)} text-xs px-2 py-1`}>
+                      {getStageLabel(application.stage)}
+                    </span>
+                  </td>
+                  <td className="px-2 py-3 text-sm font-medium">
+                    {application.stage === applicationStages.REJECTED ? (
+                      // Show disabled state for rejected applications
+                      <div className="flex flex-col space-y-1">
+                        <span className="text-xs text-gray-500 bg-gray-100 px-1 py-1 rounded text-center">
+                          Rejected
+                        </span>
+                        <button
+                          onClick={() => {
+                            setSelectedCandidate(application.candidate)
+                            setSelectedApplication(application)
+                            setShowSummary(true)
+                          }}
+                          className="flex items-center justify-center p-1 text-primary-600 hover:bg-primary-50 rounded"
+                          title="View Summary"
+                        >
+                          <Eye className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      // Show normal actions for non-rejected applications in a compact 2x2 grid
+                      <div className="grid grid-cols-2 gap-1">
+                        <button
+                          onClick={() => handleToggleShortlist(application)}
+                          className={`flex items-center justify-center p-1 rounded ${application.stage === applicationStages.SHORTLISTED
+                              ? 'text-yellow-600 bg-yellow-50'
+                              : 'text-gray-600 hover:bg-gray-50'
+                            }`}
+                          disabled={shortlistingApps.has(application.id)}
+                          title={shortlistingApps.has(application.id) ? 'Updating...' : 'Toggle Shortlist'}
+                        >
+                          {shortlistingApps.has(application.id) ? (
+                            <div className="animate-spin w-3 h-3 border border-gray-600 border-t-transparent rounded-full" />
+                          ) : (
+                            <UserCheck className="w-3 h-3" />
+                          )}
+                        </button>
+
+                        <button
+                          onClick={() => handleOpenStageModal(application, null)}
+                          className="flex items-center justify-center p-1 text-blue-600 hover:bg-blue-50 rounded"
+                          disabled={movingStageApps.has(application.id)}
+                          title={movingStageApps.has(application.id) ? 'Moving...' : 'Move Stage'}
+                        >
+                          {movingStageApps.has(application.id) ? (
+                            <div className="animate-spin w-3 h-3 border border-blue-600 border-t-transparent rounded-full" />
+                          ) : (
+                            <ArrowRight className="w-3 h-3" />
+                          )}
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setSelectedCandidate(application.candidate)
+                            setSelectedApplication(application)
+                            setShowSummary(true)
+                          }}
+                          className="flex items-center justify-center p-1 text-primary-600 hover:bg-primary-50 rounded"
+                          title="View Summary"
+                        >
+                          <Eye className="w-3 h-3" />
+                        </button>
+
+                        <button
+                          onClick={() => handleOpenStageModal(application, applicationStages.REJECTED)}
+                          className="flex items-center justify-center p-1 text-red-600 hover:bg-red-50 rounded"
+                          disabled={rejectingApps.has(application.id)}
+                          title={rejectingApps.has(application.id) ? 'Rejecting...' : 'Reject'}
+                        >
+                          {rejectingApps.has(application.id) ? (
+                            <div className="animate-spin w-3 h-3 border border-red-600 border-t-transparent rounded-full" />
+                          ) : (
+                            <X className="w-3 h-3" />
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
+                  <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No applications found</h3>
+                  <p className="text-gray-600">
+                    {Object.values(filters).some(v => v) ? 'No applications match your current filters.' : 'Applications will appear here when candidates apply for jobs.'}
+                  </p>
                 </td>
               </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
-                <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No applications found</h3>
-                <p className="text-gray-600">
-                  {Object.values(filters).some(v => v) ? 'No applications match your current filters.' : 'Applications will appear here when candidates apply for jobs.'}
-                </p>
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 
@@ -835,7 +860,7 @@ const Applications = () => {
               return selectableApplications.length < applications.length ? '(Active)' : ''
             })()}
           </InteractiveButton>
-          
+
           {selectedApplications.size > 0 && (
             <>
               <InteractiveButton
@@ -982,7 +1007,7 @@ const Applications = () => {
             animate-fade-in
           `}>
             <span className="flex-1">{toastMessage}</span>
-            <button 
+            <button
               onClick={() => setShowToast(false)}
               className="text-white hover:text-gray-200 ml-2"
             >
@@ -1048,7 +1073,7 @@ const Applications = () => {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1067,7 +1092,7 @@ const Applications = () => {
                   <option value={applicationStages.SELECTED}>Selected</option>
                 </select>
               </div>
-              
+
               <div className="flex justify-end space-x-3">
                 <button
                   onClick={() => {
@@ -1113,7 +1138,7 @@ const Applications = () => {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1127,7 +1152,7 @@ const Applications = () => {
                   placeholder="Please provide a reason for rejection..."
                 />
               </div>
-              
+
               <div className="flex justify-end space-x-3">
                 <button
                   onClick={() => {
@@ -1174,7 +1199,7 @@ const Applications = () => {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1188,13 +1213,13 @@ const Applications = () => {
                   placeholder="Please provide a reason for rejecting these applications..."
                 />
               </div>
-              
+
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                 <p className="text-sm text-yellow-800">
                   ⚠️ This action will reject {selectedApplications.size} selected applications. This cannot be undone.
                 </p>
               </div>
-              
+
               <div className="flex justify-end space-x-3">
                 <button
                   onClick={() => {
