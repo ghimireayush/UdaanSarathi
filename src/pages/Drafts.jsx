@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { 
   Plus, 
   Search, 
@@ -37,7 +37,7 @@ import DraftListManagement from '../components/DraftListManagement'
 import { InteractiveFilter, InteractiveButton, InteractiveCard, InteractivePagination, PaginationInfo } from '../components/InteractiveUI'
 
 const Drafts = () => {
-  const [viewMode, setViewMode] = useState('grid')
+  const [viewMode, setViewMode] = useState('list')
   const [filters, setFilters] = useState({
     search: '',
     country: '',
@@ -46,7 +46,7 @@ const Drafts = () => {
   })
   const [pagination, setPagination] = useState({
     page: 1,
-    limit: 12, // 12 items per page for grid view
+    limit: 20, // 20 items per page for list view
     total: 0,
     totalPages: 0
   })
@@ -183,6 +183,14 @@ const Drafts = () => {
     // Scroll to top for better UX
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [])
+
+  // Header checkbox ref to support indeterminate state
+  const headerCheckboxRef = useRef(null)
+  useEffect(() => {
+    if (headerCheckboxRef.current) {
+      headerCheckboxRef.current.indeterminate = selectedDrafts.size > 0 && selectedDrafts.size < drafts.length
+    }
+  }, [selectedDrafts, drafts])
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -977,35 +985,38 @@ const Drafts = () => {
 
   // Render list view
   const renderListView = () => (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-      <table className="min-w-full divide-y divide-gray-200">
+    <div className="bg-white rounded-lg border border-gray-200 overflow-visible">
+      <table className="w-full table-fixed divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" className="w-12 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               <input
+                ref={headerCheckboxRef}
                 type="checkbox"
+                onChange={handleSelectAll}
+                checked={drafts.length > 0 && selectedDrafts.size === drafts.length}
                 className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" className="w-[30%] px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Job Title
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" className="w-[16%] px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Company
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" className="w-[12%] px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Location
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" className="w-[8%] px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Salary
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" className="w-[8%] px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Created
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" className="w-[8%] px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Status
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" className="w-[18%] px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Actions
             </th>
           </tr>
@@ -1145,7 +1156,7 @@ const Drafts = () => {
   )
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
@@ -1156,17 +1167,6 @@ const Drafts = () => {
         </div>
         
         <div className="mt-4 sm:mt-0 flex space-x-2">
-          <InteractiveButton
-            onClick={(e) => {
-              e.preventDefault()
-              handleSelectAll()
-            }}
-            variant="secondary"
-            size="sm"
-            icon={selectedDrafts.size === drafts.length ? CheckSquare : Square}
-          >
-            Select All
-          </InteractiveButton>
           
           {selectedDrafts.size > 0 && (
             <>
@@ -1178,8 +1178,8 @@ const Drafts = () => {
                 }}
                 variant="primary"
                 size="sm"
-                disabled={isPublishing}
-                loading={isPublishing}
+                disabled={publishingDrafts.size > 0}
+                loading={publishingDrafts.size > 0}
                 icon={Check}
               >
                 Publish ({selectedDrafts.size})
@@ -1258,34 +1258,58 @@ const Drafts = () => {
         </div>
       </div>
 
-      {/* Interactive Filters */}
-      <InteractiveFilter
-        filters={filters}
-        onFilterChange={handleFilterChange}
-        searchPlaceholder="Search drafts by title, company, or description..."
-        filterOptions={{
-          search: true,
-          country: {
-            type: 'select',
-            label: 'Country',
-            placeholder: 'All Countries',
-            options: countries.map(country => ({ value: country, label: country }))
-          },
-          company: {
-            type: 'select',
-            label: 'Company',
-            placeholder: 'All Companies',
-            options: companyOptions.map(company => ({ value: company, label: company }))
-          },
-          category: {
-            type: 'select',
-            label: 'Category',
-            placeholder: 'All Categories',
-            options: categories.map(category => ({ value: category, label: category }))
-          }
-        }}
-        className="mb-6"
-      />
+      {/* Minimal Filters (like Jobs page) */}
+      <div className="card p-6 mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0 lg:space-x-4">
+          {/* Search */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search drafts by title, company..."
+              value={filters.search}
+              onChange={(e) => handleFilterChange('search', e.target.value)}
+              className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            />
+          </div>
+
+          {/* Filters */}
+          <div className="flex flex-wrap gap-3">
+            <select
+              value={filters.country}
+              onChange={(e) => handleFilterChange('country', e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            >
+              <option value="">All Countries</option>
+              {countries.map(country => (
+                <option key={country} value={country}>{country}</option>
+              ))}
+            </select>
+
+            <select
+              value={filters.company}
+              onChange={(e) => handleFilterChange('company', e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            >
+              <option value="">All Companies</option>
+              {companyOptions.map(company => (
+                <option key={company} value={company}>{company}</option>
+              ))}
+            </select>
+
+            <select
+              value={filters.category}
+              onChange={(e) => handleFilterChange('category', e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            >
+              <option value="">All Categories</option>
+              {categories.map(category => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
 
       {/* Results Info */}
       <div className="mb-4 text-sm text-gray-500 flex items-center justify-between">

@@ -9,7 +9,7 @@ import { format, startOfWeek, endOfWeek, startOfDay, endOfDay, addMinutes, isPas
 
 const Interviews = () => {
   const [activeTab, setActiveTab] = useState('scheduled') // 'scheduled', 'schedule', 'calendar', 'ai-assistant'
-  const [viewMode, setViewMode] = useState('list') // 'list', 'calendar'
+  const [viewMode, setViewMode] = useState('calendar') // 'list', 'calendar'
   const [timeRange, setTimeRange] = useState('week') // 'day', 'week'
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [selectedJob, setSelectedJob] = useState('')

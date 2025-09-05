@@ -27,6 +27,7 @@ import { jobService, applicationService, candidateService, constantsService } fr
 import { format } from 'date-fns'
 import EnhancedInterviewScheduling from '../components/EnhancedInterviewScheduling.jsx'
 import ScheduledInterviews from '../components/ScheduledInterviews.jsx'
+import CandidateSummaryS2 from '../components/CandidateSummaryS2.jsx'
 
 
 const JobDetails = () => {
@@ -57,6 +58,16 @@ const JobDetails = () => {
   const [isBulkRejecting, setIsBulkRejecting] = useState(false)
   const [isCompletingShortlisting, setIsCompletingShortlisting] = useState(false)
   const [showCompletionDialog, setShowCompletionDialog] = useState(false)
+  
+  // Workflow-style stages used in unified Candidate Summary
+  const sidebarWorkflowStages = [
+    { id: 'applied', label: 'Applied' },
+    { id: 'shortlisted', label: 'Shortlisted' },
+    { id: 'scheduled', label: 'Scheduled' },
+    { id: 'interviewed', label: 'Interviewed' },
+    { id: 'selected', label: 'Selected' },
+    { id: 'rejected', label: 'Rejected' }
+  ]
   
   // Load data on mount and when filters change
   useEffect(() => {
@@ -299,6 +310,31 @@ const JobDetails = () => {
   const handleCloseSidebar = () => {
     setIsSidebarOpen(false)
     setSelectedCandidate(null)
+  }
+
+  const handleUpdateStatusFromSidebar = async (candidateId, newStage) => {
+    try {
+      const candidate = [
+        ...appliedCandidates,
+        ...shortlistedCandidates,
+        ...scheduledCandidates
+      ].find(c => c.id === candidateId)
+      if (candidate && candidate.application) {
+        await applicationService.updateApplicationStage(candidate.application.id, newStage)
+        await loadAllData()
+      }
+    } catch (error) {
+      console.error('Failed to update status from sidebar:', error)
+    }
+  }
+
+  const handleAttachDocumentFromSidebar = async (candidateId, document) => {
+    try {
+      await applicationService.attachDocument(candidateId, document)
+      await loadAllData()
+    } catch (error) {
+      console.error('Failed to attach document from sidebar:', error)
+    }
   }
 
   const handleToggleShortlist = async (candidate) => {
@@ -598,180 +634,7 @@ const JobDetails = () => {
     )
   }
 
-  const CandidateSidebar = ({ candidate, isOpen, onClose, onToggleShortlist }) => {
-    if (!isOpen || !candidate) return null
-
-    const isShortlisted = candidate.application.stage === applicationStages.SHORTLISTED
-
-    return (
-      <div className="fixed inset-0 z-50 overflow-hidden">
-        <div className="absolute inset-0 bg-black bg-opacity-30" onClick={onClose}></div>
-        <div className="absolute right-0 top-0 h-full bg-white shadow-xl" style={{ width: '60vw' }}>
-          <div className="flex flex-col h-full">
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">Applicant Summary</h2>
-              <button
-                onClick={onClose}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {/* Profile Section */}
-              <div className="mb-8">
-                <div className="flex items-start space-x-4 mb-6">
-                  <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center">
-                    <span className="text-2xl font-medium text-gray-600">
-                      {candidate.name.charAt(0)}
-                    </span>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-2xl font-bold text-gray-900 mb-2">{candidate.name}</h3>
-                    {candidate.priority_score && (
-                      <div className="flex items-center space-x-2 mb-2">
-                        <Star className="w-5 h-5 text-yellow-500" />
-                        <span className="text-lg font-medium text-gray-700">Priority Score: {candidate.priority_score}</span>
-                      </div>
-                    )}
-                    <div className="text-sm text-gray-500">
-                      Applied {format(new Date(candidate.applied_at), 'MMM dd, yyyy')}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Contact Information */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                  <div className="flex items-center space-x-3">
-                    <Phone className="w-5 h-5 text-gray-400" />
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">Phone</div>
-                      <div className="text-sm text-gray-600">{candidate.phone}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <Mail className="w-5 h-5 text-gray-400" />
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">Email</div>
-                      <div className="text-sm text-gray-600">{candidate.email}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Address */}
-              <div className="mb-8">
-                <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-                  <Home className="w-5 h-5 mr-2" />
-                  Address
-                </h4>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-gray-700">{candidate.address}</p>
-                </div>
-              </div>
-
-              {/* Skills */}
-              <div className="mb-8">
-                <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-                  <Briefcase className="w-5 h-5 mr-2" />
-                  Skills
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {candidate.skills.map((skill, index) => (
-                    <span key={index} className="chip chip-blue">
-                      {skill}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Education */}
-              <div className="mb-8">
-                <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-                  <GraduationCap className="w-5 h-5 mr-2" />
-                  Education
-                </h4>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-gray-700">{candidate.education || 'Not specified'}</p>
-                </div>
-              </div>
-
-              {/* Experience */}
-              <div className="mb-8">
-                <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-                  <FileText className="w-5 h-5 mr-2" />
-                  Experience
-                </h4>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-gray-700">{candidate.experience}</p>
-                </div>
-              </div>
-
-              {/* Preferences */}
-              <div className="mb-8">
-                <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-                  <Heart className="w-5 h-5 mr-2" />
-                  Preferences
-                </h4>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">Preferred Salary</div>
-                      <div className="text-sm text-gray-600">{candidate.preferred_salary || 'Not specified'}</div>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">Availability</div>
-                      <div className="text-sm text-gray-600">{candidate.availability || 'Immediate'}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* CV Section */}
-              <div className="mb-8">
-                <h4 className="text-lg font-semibold text-gray-900 mb-3">CV</h4>
-                <div className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <FileText className="w-8 h-8 text-gray-400" />
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {candidate.name}_CV.pdf
-                        </div>
-                        <div className="text-xs text-gray-500">PDF • 2.3 MB</div>
-                      </div>
-                    </div>
-                    <button className="btn-secondary text-sm">
-                      <Download className="w-4 h-4 mr-2" />
-                      Download
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="border-t border-gray-200 p-6">
-              <button
-                onClick={() => onToggleShortlist(candidate)}
-                className={`w-full flex items-center justify-center px-4 py-3 rounded-md font-medium transition-colors ${
-                  isShortlisted
-                    ? 'bg-red-600 hover:bg-red-700 text-white'
-                    : 'bg-green-600 hover:bg-green-700 text-white'
-                }`}
-              >
-                <UserCheck className="w-5 h-5 mr-2" />
-                {isShortlisted ? 'Remove from Shortlist Pool' : 'Add to Shortlist Pool'}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  // Removed old Applicant Summary; using unified CandidateSummaryS2
   
   const renderTabContent = () => {
     switch (activeTab) {
@@ -1088,12 +951,14 @@ const JobDetails = () => {
         shortlistedCount={shortlistedCandidates.length}
       />
 
-      {/* Candidate Sidebar */}
-      <CandidateSidebar
+      {/* Unified Candidate Summary (Workflow-style) */}
+      <CandidateSummaryS2
         candidate={selectedCandidate}
         isOpen={isSidebarOpen}
         onClose={handleCloseSidebar}
-        onToggleShortlist={handleToggleShortlist}
+        onUpdateStatus={handleUpdateStatusFromSidebar}
+        onAttachDocument={handleAttachDocumentFromSidebar}
+        workflowStages={sidebarWorkflowStages}
       />
 
       {/* Breadcrumb */}

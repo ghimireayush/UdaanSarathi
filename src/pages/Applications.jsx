@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Search,
@@ -34,7 +34,7 @@ import { format } from 'date-fns'
 import performanceService from '../services/performanceService'
 import { useAccessibility } from '../hooks/useAccessibility'
 import { useI18n } from '../hooks/useI18n'
-import { InteractiveFilter, InteractiveButton, InteractiveCard, InteractivePagination, PaginationInfo } from '../components/InteractiveUI'
+import { InteractiveButton, InteractiveCard, InteractivePagination, PaginationInfo } from '../components/InteractiveUI'
 import { useNotificationContext } from '../contexts/NotificationContext'
 import CandidateSummaryS2 from '../components/CandidateSummaryS2.jsx'
 
@@ -66,7 +66,14 @@ const Applications = () => {
   const [error, setError] = useState(null)
   const [isUpdating, setIsUpdating] = useState(false)
   const [loadTime, setLoadTime] = useState(null)
-  const [viewMode, setViewMode] = useState('grid') // 'grid' or 'list'
+  const [viewMode, setViewMode] = useState('list') // 'grid' or 'list'
+  const headerCheckboxRef = useRef(null)
+  useEffect(() => {
+    if (headerCheckboxRef.current) {
+      const selectable = applications.filter(app => app.stage !== applicationStages.REJECTED)
+      headerCheckboxRef.current.indeterminate = selectedApplications.size > 0 && selectedApplications.size < selectable.length
+    }
+  }, [selectedApplications, applications, applicationStages])
 
   // Toast notification states
   const [showToast, setShowToast] = useState(false)
@@ -642,33 +649,36 @@ const Applications = () => {
 
   // Render list view
   const renderListView = () => (
-    <div className="card overflow-hidden">
-      <div className="overflow-hidden">
+    <div className="card overflow-visible">
+      <div className="overflow-visible">
         <table className="w-full table-fixed divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               <th scope="col" className="w-12 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 <input
+                  ref={headerCheckboxRef}
                   type="checkbox"
+                  onChange={handleSelectAll}
+                  checked={applications.filter(app => app.stage !== applicationStages.REJECTED).length > 0 && selectedApplications.size === applications.filter(app => app.stage !== applicationStages.REJECTED).length}
                   className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                 />
               </th>
-              <th scope="col" className="w-1/4 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="w-[24%] px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Candidate
               </th>
-              <th scope="col" className="w-1/6 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="w-[16%] px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Job
               </th>
-              <th scope="col" className="w-1/6 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="w-[16%] px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Contact
               </th>
-              <th scope="col" className="w-20 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="w-[8%] px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Date
               </th>
-              <th scope="col" className="w-20 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="w-[8%] px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Stage
               </th>
-              <th scope="col" className="w-32 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="w-[28%] px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
               </th>
             </tr>
@@ -736,45 +746,42 @@ const Applications = () => {
                   </td>
                   <td className="px-2 py-3 text-sm font-medium">
                     {application.stage === applicationStages.REJECTED ? (
-                      // Show disabled state for rejected applications
-                      <div className="flex flex-col space-y-1">
-                        <span className="text-xs text-gray-500 bg-gray-100 px-1 py-1 rounded text-center">
-                          Rejected
-                        </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded border">Rejected</span>
                         <button
                           onClick={() => {
                             setSelectedCandidate(application.candidate)
                             setSelectedApplication(application)
                             setShowSummary(true)
                           }}
-                          className="flex items-center justify-center p-1 text-primary-600 hover:bg-primary-50 rounded"
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs text-primary-700 bg-primary-50 hover:bg-primary-100 rounded border border-primary-200"
                           title="View Summary"
                         >
-                          <Eye className="w-3 h-3" />
+                          <Eye className="w-3 h-3" /> Summary
                         </button>
                       </div>
                     ) : (
-                      // Show normal actions for non-rejected applications in a compact 2x2 grid
-                      <div className="grid grid-cols-2 gap-1">
+                      <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleToggleShortlist(application)}
-                          className={`flex items-center justify-center p-1 rounded ${application.stage === applicationStages.SHORTLISTED
-                              ? 'text-yellow-600 bg-yellow-50'
-                              : 'text-gray-600 hover:bg-gray-50'
+                          className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded border ${application.stage === applicationStages.SHORTLISTED
+                              ? 'text-yellow-700 bg-yellow-50 border-yellow-200'
+                              : 'text-gray-700 bg-white hover:bg-gray-50 border-gray-200'
                             }`}
                           disabled={shortlistingApps.has(application.id)}
                           title={shortlistingApps.has(application.id) ? 'Updating...' : 'Toggle Shortlist'}
                         >
                           {shortlistingApps.has(application.id) ? (
-                            <div className="animate-spin w-3 h-3 border border-gray-600 border-t-transparent rounded-full" />
+                            <div className="animate-spin w-3 h-3 border border-current border-t-transparent rounded-full" />
                           ) : (
                             <UserCheck className="w-3 h-3" />
                           )}
+                          {application.stage === applicationStages.SHORTLISTED ? 'Shortlisted' : 'Shortlist'}
                         </button>
 
                         <button
                           onClick={() => handleOpenStageModal(application, null)}
-                          className="flex items-center justify-center p-1 text-blue-600 hover:bg-blue-50 rounded"
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200"
                           disabled={movingStageApps.has(application.id)}
                           title={movingStageApps.has(application.id) ? 'Moving...' : 'Move Stage'}
                         >
@@ -783,6 +790,7 @@ const Applications = () => {
                           ) : (
                             <ArrowRight className="w-3 h-3" />
                           )}
+                          Move
                         </button>
 
                         <button
@@ -791,15 +799,15 @@ const Applications = () => {
                             setSelectedApplication(application)
                             setShowSummary(true)
                           }}
-                          className="flex items-center justify-center p-1 text-primary-600 hover:bg-primary-50 rounded"
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-700 bg-white hover:bg-gray-50 rounded border border-gray-200"
                           title="View Summary"
                         >
-                          <Eye className="w-3 h-3" />
+                          <Eye className="w-3 h-3" /> Summary
                         </button>
 
                         <button
                           onClick={() => handleOpenStageModal(application, applicationStages.REJECTED)}
-                          className="flex items-center justify-center p-1 text-red-600 hover:bg-red-50 rounded"
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs text-red-700 bg-red-50 hover:bg-red-100 rounded border border-red-200"
                           disabled={rejectingApps.has(application.id)}
                           title={rejectingApps.has(application.id) ? 'Rejecting...' : 'Reject'}
                         >
@@ -808,6 +816,7 @@ const Applications = () => {
                           ) : (
                             <X className="w-3 h-3" />
                           )}
+                          Reject
                         </button>
                       </div>
                     )}
@@ -832,7 +841,7 @@ const Applications = () => {
   )
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
@@ -843,23 +852,7 @@ const Applications = () => {
         </div>
 
         <div className="mt-4 sm:mt-0 flex space-x-2">
-          <InteractiveButton
-            onClick={(e) => {
-              e.preventDefault()
-              handleSelectAll()
-            }}
-            variant="secondary"
-            size="sm"
-            icon={(() => {
-              const selectableApplications = applications.filter(app => app.stage !== applicationStages.REJECTED)
-              return selectedApplications.size === selectableApplications.length ? CheckSquare : Square
-            })()}
-          >
-            Select All {(() => {
-              const selectableApplications = applications.filter(app => app.stage !== applicationStages.REJECTED)
-              return selectableApplications.length < applications.length ? '(Active)' : ''
-            })()}
-          </InteractiveButton>
+          {/* Select All button removed */}
 
           {selectedApplications.size > 0 && (
             <>
@@ -918,41 +911,61 @@ const Applications = () => {
         </div>
       </div>
 
-      {/* Interactive Filters */}
-      <InteractiveFilter
-        filters={filters}
-        onFilterChange={handleFilterChange}
-        searchPlaceholder="Search by name, phone, email, or skills..."
-        filterOptions={{
-          search: true,
-          stage: {
-            type: 'select',
-            label: 'Application Stage',
-            placeholder: 'All Stages',
-            options: [
-              { value: 'applied', label: 'Applied' },
-              { value: 'shortlisted', label: 'Shortlisted' },
-              { value: 'scheduled', label: 'Scheduled' },
-              { value: 'interviewed', label: 'Interviewed' },
-              { value: 'selected', label: 'Selected' },
-              { value: 'rejected', label: 'Rejected' }
-            ]
-          },
-          country: {
-            type: 'select',
-            label: 'Country',
-            placeholder: 'All Countries',
-            options: countries.map(country => ({ value: country, label: country }))
-          },
-          jobId: {
-            type: 'select',
-            label: 'Job Position',
-            placeholder: 'All Jobs',
-            options: jobs.map(job => ({ value: job.id, label: `${job.title} - ${job.company}` }))
-          }
-        }}
-        className="mb-6"
-      />
+      {/* Minimal Filters (like Jobs/Drafts) */}
+      <div className="card p-6 mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0 lg:space-x-4">
+          {/* Search */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search by name, phone, email, or skills..."
+              value={filters.search}
+              onChange={(e) => handleFilterChange('search', e.target.value)}
+              className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            />
+          </div>
+
+          {/* Filters */}
+          <div className="flex flex-wrap gap-3">
+            <select
+              value={filters.stage}
+              onChange={(e) => handleFilterChange('stage', e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            >
+              <option value="">All Stages</option>
+              <option value="applied">Applied</option>
+              <option value="shortlisted">Shortlisted</option>
+              <option value="scheduled">Scheduled</option>
+              <option value="interviewed">Interviewed</option>
+              <option value="selected">Selected</option>
+              <option value="rejected">Rejected</option>
+            </select>
+
+            <select
+              value={filters.country}
+              onChange={(e) => handleFilterChange('country', e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            >
+              <option value="">All Countries</option>
+              {countries.map(country => (
+                <option key={country} value={country}>{country}</option>
+              ))}
+            </select>
+
+            <select
+              value={filters.jobId}
+              onChange={(e) => handleFilterChange('jobId', e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            >
+              <option value="">All Jobs</option>
+              {jobs.map(job => (
+                <option key={job.id} value={job.id}>{job.title} - {job.company}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
 
       {/* Performance Indicator */}
       <div className="mb-4 text-sm text-gray-500 flex items-center justify-between">
