@@ -101,52 +101,15 @@ If your app uses environment variables:
 - `npm run build` - Build for production
 - `npm run preview` - Preview build locally
 
-## Automatic Deployment Setup
-
-### Git Integration Benefits:
-- **Auto-deploy on push** - Every commit to main branch triggers deployment
-- **Deploy previews** - Pull requests get preview URLs for testing
-- **Rollback capability** - Easy rollback to previous deployments
-- **Build notifications** - Get notified of successful/failed builds
-
-### Setting up Auto-Deploy:
-1. Connect your repository when creating the site
-2. Netlify automatically detects changes and deploys
-3. Configure branch settings in "Site settings > Build & deploy"
-
-### Git Workflow:
-```bash
-# Make changes to your code
-git add .
-git commit -m "Update login security and fix bugs"
-git push origin main
-
-# Netlify automatically:
-# 1. Detects the push
-# 2. Runs npm install
-# 3. Runs npm run build
-# 4. Deploys to your site
-# 5. Sends notification (if configured)
-```
-
-## Security Features Added
-
-### Login Page Security:
-- **Paste disabled** - Users cannot paste credentials (prevents clipboard attacks)
-- **Security message** - Users get feedback when paste is attempted
-- **Form validation** - Proper error handling and validation
-
 ## Post-Deployment Checklist
 
 - [ ] Site loads correctly
 - [ ] All routes work (no 404s)
 - [ ] Forms submit properly
-- [ ] Login paste prevention works
 - [ ] API calls work
 - [ ] Images and assets load
 - [ ] Mobile responsiveness
 - [ ] Performance check
-- [ ] Auto-deployment from Git works
 
 Your site will be available at: `https://[random-name].netlify.app`
 

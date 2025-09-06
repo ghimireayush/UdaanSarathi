@@ -11,18 +11,6 @@
 [build.environment]
   # Node.js version
   NODE_VERSION = "18"
-  # Enable CI mode for better build performance
-  CI = "true"
-
-# Auto-deploy settings
-[context.production]
-  command = "npm run build"
-  
-[context.deploy-preview]
-  command = "npm run build"
-  
-[context.branch-deploy]
-  command = "npm run build"
 
 # Redirect rules for SPA (Single Page Application)
 [[redirects]]
