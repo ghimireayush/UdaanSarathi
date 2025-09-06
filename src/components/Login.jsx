@@ -46,6 +46,12 @@ const Login = ({ onSuccess }) => {
     setError('')
   }
 
+  // Prevent paste events on login form inputs
+  const handlePaste = (e) => {
+    e.preventDefault()
+    setError('Pasting is disabled for security reasons. Please type your credentials.')
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
@@ -112,6 +118,7 @@ const Login = ({ onSuccess }) => {
                   name="username"
                   value={formData.username}
                   onChange={handleInputChange}
+                  onPaste={handlePaste}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
                   placeholder="Enter your username or email"
                   disabled={isLoading}
@@ -131,6 +138,7 @@ const Login = ({ onSuccess }) => {
                   name="password"
                   value={formData.password}
                   onChange={handleInputChange}
+                  onPaste={handlePaste}
                   className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
                   placeholder="Enter your password"
                   disabled={isLoading}
@@ -178,16 +186,15 @@ const Login = ({ onSuccess }) => {
           <p className="text-sm text-gray-600 mb-4 text-center">
             Try different roles to see permission-based features
           </p>
-          
+
           <div className="space-y-3">
             {demoAccounts.map((account) => (
               <div
                 key={account.id}
-                className={`border rounded-lg p-4 transition-all cursor-pointer hover:shadow-md ${
-                  selectedDemo === account.id 
-                    ? 'border-primary-500 bg-primary-50' 
+                className={`border rounded-lg p-4 transition-all cursor-pointer hover:shadow-md ${selectedDemo === account.id
+                    ? 'border-primary-500 bg-primary-50'
                     : 'border-gray-200 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center">
