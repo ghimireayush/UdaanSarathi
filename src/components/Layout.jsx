@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { PERMISSIONS } from '../services/authService.js'
-import logo from '../assets/logo.svg'
+import logo from '../assets/inspire-agency-logo.svg'
 
 const Layout = ({ children }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -110,9 +110,9 @@ const Layout = ({ children }) => {
         <div className="flex flex-col flex-grow bg-white/80 backdrop-blur-sm border-r border-gray-200/50 pt-5 pb-4 overflow-y-auto shadow-lg">
           <div className="flex items-center flex-shrink-0 px-4 py-4">
             <Link to="/dashboard" className="w-full flex flex-col items-center focus:outline-none focus:ring-2 focus:ring-brand-blue-bright rounded p-2 hover:bg-white/50 transition-all duration-300">
-              <img src={logo} alt="Udaan Sarathi Logo" className="w-16 h-16 object-contain drop-shadow-md" />
+              <img src={logo} alt="Inspire International Employment Pvt. Ltd Logo" className="w-20 h-20 object-contain drop-shadow-md" />
               <h1 className="text-lg font-bold text-brand-navy mt-3 text-center bg-gradient-to-r from-brand-navy to-brand-blue-bright bg-clip-text text-transparent">
-                Udaan Sarathi
+                Inspire International Employment Pvt. Ltd
               </h1>
             </Link>
           </div>
@@ -185,9 +185,9 @@ const Layout = ({ children }) => {
               )}
             </button>
             <Link to="/dashboard" className="ml-2 flex flex-col items-center focus:outline-none focus:ring-2 focus:ring-brand-blue-bright rounded py-2 px-3">
-              <img src={logo} alt="Udaan Sarathi Logo" className="w-10 h-10 object-contain drop-shadow-md" />
+              <img src={logo} alt="Inspire International Employment Pvt. Ltd Logo" className="w-12 h-12 object-contain drop-shadow-md" />
               <h1 className="text-sm font-bold text-brand-navy mt-1 text-center bg-gradient-to-r from-brand-navy to-brand-blue-bright bg-clip-text text-transparent">
-                Udaan Sarathi
+                Inspire International Employment Pvt. Ltd
               </h1>
             </Link>
           </div>
@@ -222,7 +222,7 @@ const Layout = ({ children }) => {
               <div className="flex items-center px-4">
                 <Link to="/dashboard" className="focus:outline-none focus:ring-2 focus:ring-brand-blue-bright rounded">
                   <h1 className="text-xl font-bold text-brand-navy bg-gradient-to-r from-brand-navy to-brand-blue-bright bg-clip-text text-transparent">
-                    Udaan Sarathi
+                    Inspire International Employment Pvt. Ltd
                   </h1>
                 </Link>
               </div>
