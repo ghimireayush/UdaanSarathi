@@ -233,17 +233,17 @@ const Jobs = () => {
       {/* Country Distribution */}
       <div className="card p-6 mb-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4">Open job distribution by country</h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-1">
           {Object.entries(countryDistribution)
             .filter(([country, count]) => count > 0)
             .map(([country, count]) => (
               <button 
                 key={country} 
-                className="flex flex-col items-center justify-center p-3 text-center hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors"
+                className="flex flex-col items-center justify-center p-1 text-center hover:bg-gray-50 border border-gray-200 rounded-sm transition-colors"
                 onClick={() => handleFilterChange('country', country)}
               >
-                <span className="text-sm text-gray-600 mb-1">{country}</span>
-                <span className="text-lg font-bold text-primary-600">{count}</span>
+                <span className="text-[10px] text-gray-600">{country}</span>
+                <span className="text-sm font-semibold text-primary-600 leading-tight">{count}</span>
               </button>
             ))}
         </div>
