@@ -38,6 +38,7 @@ const InteractiveCard = ({
   return (
     <div
       className={`
+        relative
         ${baseClasses}
         ${variants[variant]}
         ${hoverClasses}
@@ -54,7 +55,7 @@ const InteractiveCard = ({
     >
       {/* Animated border on hover */}
       {isHovered && hoverable && (
-        <div className="absolute inset-0 rounded-lg border-2 border-primary-300 animate-pulse" />
+        <div className="absolute inset-0 rounded-lg border-2 border-primary-300 opacity-50" />
       )}
       
       {children}

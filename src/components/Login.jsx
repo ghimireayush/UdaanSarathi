@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { Eye, EyeOff, LogIn, AlertCircle, User, Lock } from 'lucide-react'
 
@@ -11,32 +11,6 @@ const Login = ({ onSuccess }) => {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [selectedDemo, setSelectedDemo] = useState('')
-
-  // Add global paste prevention as backup
-  useEffect(() => {
-    const preventGlobalPaste = (e) => {
-      // Only prevent paste on login form inputs
-      if (e.target.name === 'username' || e.target.name === 'password') {
-        e.preventDefault()
-        e.stopPropagation()
-        setError('🔒 Pasting is disabled for security reasons. Please type your credentials manually.')
-        
-        setTimeout(() => {
-          setError('')
-        }, 5000)
-        
-        return false
-      }
-    }
-
-    // Add event listener to document
-    document.addEventListener('paste', preventGlobalPaste, true)
-    
-    // Cleanup
-    return () => {
-      document.removeEventListener('paste', preventGlobalPaste, true)
-    }
-  }, [])
 
   // Demo accounts for easy testing
   const demoAccounts = [
@@ -70,62 +44,6 @@ const Login = ({ onSuccess }) => {
       [name]: value
     }))
     setError('')
-  }
-
-  // Comprehensive paste prevention for security
-  const handlePaste = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setError('🔒 Pasting is disabled for security reasons. Please type your credentials manually.')
-    
-    // Clear the error after 5 seconds
-    setTimeout(() => {
-      setError('')
-    }, 5000)
-    
-    return false
-  }
-
-  // Prevent context menu (right-click) on input fields
-  const handleContextMenu = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setError('🔒 Right-click is disabled on login fields for security.')
-    
-    setTimeout(() => {
-      setError('')
-    }, 3000)
-    
-    return false
-  }
-
-  // Prevent drag and drop on input fields
-  const handleDrop = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setError('🔒 Drag and drop is disabled on login fields for security.')
-    
-    setTimeout(() => {
-      setError('')
-    }, 3000)
-    
-    return false
-  }
-
-  // Prevent keyboard shortcuts for paste (Ctrl+V, Cmd+V)
-  const handleKeyDown = (e) => {
-    // Prevent Ctrl+V (Windows/Linux) and Cmd+V (Mac)
-    if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-      e.preventDefault()
-      e.stopPropagation()
-      setError('🔒 Keyboard paste (Ctrl+V/Cmd+V) is disabled for security.')
-      
-      setTimeout(() => {
-        setError('')
-      }, 5000)
-      
-      return false
-    }
   }
 
   const handleSubmit = async (e) => {
@@ -194,15 +112,9 @@ const Login = ({ onSuccess }) => {
                   name="username"
                   value={formData.username}
                   onChange={handleInputChange}
-                  onPaste={handlePaste}
-                  onContextMenu={handleContextMenu}
-                  onDrop={handleDrop}
-                  onDragOver={(e) => e.preventDefault()}
-                  onKeyDown={handleKeyDown}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
                   placeholder="Enter your username or email"
                   disabled={isLoading}
-                  autoComplete="username"
                 />
               </div>
             </div>
@@ -219,15 +131,9 @@ const Login = ({ onSuccess }) => {
                   name="password"
                   value={formData.password}
                   onChange={handleInputChange}
-                  onPaste={handlePaste}
-                  onContextMenu={handleContextMenu}
-                  onDrop={handleDrop}
-                  onDragOver={(e) => e.preventDefault()}
-                  onKeyDown={handleKeyDown}
                   className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
                   placeholder="Enter your password"
                   disabled={isLoading}
-                  autoComplete="current-password"
                 />
                 <button
                   type="button"

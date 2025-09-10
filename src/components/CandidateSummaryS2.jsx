@@ -397,21 +397,31 @@ const CandidateSummaryS2 = ({
                   </div>
                 </div>
               ) : (
-                // Show normal update status dropdown for non-rejected applications
+                // Show simplified "Move to Next Stage" button for shortlisting
                 <div className="flex items-center space-x-3">
                   <span className="text-sm font-medium text-gray-700">Update Status:</span>
-                  <select
-                    value={candidate.application?.stage || ''}
-                    onChange={(e) => handleStatusUpdate(e.target.value)}
-                    disabled={isUpdating}
-                    className="text-sm border border-gray-300 rounded px-3 py-1 bg-white"
-                  >
-                    {workflowStages.map((stage) => (
-                      <option key={stage.id} value={stage.id}>
-                        {stage.label}
-                      </option>
-                    ))}
-                  </select>
+                  {candidate.application?.stage === 'applied' ? (
+                    <button
+                      onClick={() => handleStatusUpdate('shortlisted')}
+                      disabled={isUpdating}
+                      className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {isUpdating ? 'Moving...' : 'Move to Next Stage (Shortlist)'}
+                    </button>
+                  ) : (
+                    <select
+                      value={candidate.application?.stage || ''}
+                      onChange={(e) => handleStatusUpdate(e.target.value)}
+                      disabled={isUpdating}
+                      className="text-sm border border-gray-300 rounded px-3 py-1 bg-white"
+                    >
+                      {workflowStages.map((stage) => (
+                        <option key={stage.id} value={stage.id}>
+                          {stage.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               )}
               

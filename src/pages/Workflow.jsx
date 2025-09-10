@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom'
 import { 
   Users, 
   Search, 
-  Filter, 
   FileText, 
   Upload,
   CheckCircle,
@@ -11,7 +10,6 @@ import {
   AlertCircle,
   Phone,
   CreditCard,
-  User,
   Calendar,
   MapPin,
   Briefcase,
@@ -19,8 +17,9 @@ import {
 } from 'lucide-react'
 import { applicationService, candidateService, constantsService } from '../services/index.js'
 import { format } from 'date-fns'
-import WorkflowStepper from '../components/WorkflowStepper.jsx'
+
 import CandidateSummaryS2 from '../components/CandidateSummaryS2.jsx'
+import InteractivePagination, { PaginationInfo, ItemsPerPageSelector } from '../components/InteractiveUI/InteractivePagination.jsx'
 
 const Workflow = () => {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -32,10 +31,14 @@ const Workflow = () => {
   const [selectedCandidate, setSelectedCandidate] = useState(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+  const [allCandidates, setAllCandidates] = useState([]) // Store all candidates for pagination
+  
   // Data state
   const [candidates, setCandidates] = useState([])
   const [analytics, setAnalytics] = useState({})
-  const [stages, setStages] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -67,24 +70,15 @@ const Workflow = () => {
       setIsLoading(true)
       setError(null)
 
-      // Load application stages
-      const stageConstants = await constantsService.getApplicationStages()
-      setStages(stageConstants)
+      // Load application stages (for future use)
+      await constantsService.getApplicationStages()
 
-      // Load candidates based on current stage
-      let candidatesData = []
-      
-      if (activeTab === 'by-job') {
-        // Group by job posts
-        candidatesData = await applicationService.getCandidatesByStage(selectedStage)
-      } else {
-        // All candidates for search functionality
-        candidatesData = await applicationService.getAllCandidatesInWorkflow()
-      }
+      // Always load ALL candidates for analytics calculation
+      const allCandidatesData = await applicationService.getAllCandidatesInWorkflow()
 
       // Enrich with candidate details
-      const enrichedCandidates = await Promise.all(
-        candidatesData.map(async (item) => {
+      const allEnrichedCandidates = await Promise.all(
+        allCandidatesData.map(async (item) => {
           const candidate = await candidateService.getCandidateById(item.candidate_id)
           return {
             ...candidate,
@@ -97,10 +91,17 @@ const Workflow = () => {
         })
       )
 
-      setCandidates(enrichedCandidates)
+      // Filter candidates for display based on selected stage
+      const filteredCandidates = allEnrichedCandidates.filter(c => c.application.stage === selectedStage)
+      setAllCandidates(filteredCandidates) // Store all filtered candidates
+      
+      // Apply pagination
+      const startIndex = (currentPage - 1) * itemsPerPage
+      const paginatedCandidates = filteredCandidates.slice(startIndex, startIndex + itemsPerPage)
+      setCandidates(paginatedCandidates)
 
-      // Calculate analytics
-      const analyticsData = calculateAnalytics(enrichedCandidates)
+      // Calculate analytics using ALL candidates (not just filtered ones)
+      const analyticsData = calculateAnalytics(allEnrichedCandidates)
       setAnalytics(analyticsData)
 
     } catch (err) {
@@ -212,6 +213,27 @@ const Workflow = () => {
       return acc
     }, {}) : {}
 
+  // Pagination logic
+  const totalCandidates = filteredCandidates.length
+  const totalPages = Math.ceil(totalCandidates / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedCandidates = filteredCandidates.slice(startIndex, endIndex)
+
+  // Reset to first page when stage changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [selectedStage, activeTab, searchQuery])
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page)
+  }
+
+  const handleItemsPerPageChange = (newItemsPerPage) => {
+    setItemsPerPage(newItemsPerPage)
+    setCurrentPage(1)
+  }
+
   if (isLoading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -301,66 +323,44 @@ const Workflow = () => {
           </div>
         </div>
         
-        {/* Stage Overview */}
-        <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-8 gap-3">
+        {/* Circular Stage Overview */}
+        <div className="grid grid-cols-4 md:grid-cols-8 gap-4">
           {workflowStages.slice(0, 8).map((stage) => {
             const count = analytics.stageCounts?.[stage.id] || 0
-            const Icon = stage.icon
             const isActive = stage.id === selectedStage
+            
             return (
               <div 
                 key={stage.id} 
-                className={`card p-3 cursor-pointer transition-all hover:shadow-md ${
-                  isActive ? 'ring-2 ring-primary-500 bg-primary-50' : ''
-                }`}
+                className="flex flex-col items-center cursor-pointer transition-all hover:scale-105"
                 onClick={() => handleStageChange(stage.id)}
               >
-                <div className="text-center">
-                  <Icon className={`w-6 h-6 mx-auto mb-2 ${
-                    isActive ? 'text-primary-600' : 'text-gray-600'
-                  }`} />
-                  <p className={`text-xs font-medium mb-1 ${
-                    isActive ? 'text-primary-900' : 'text-gray-900'
-                  }`}>
-                    {stage.label}
-                  </p>
-                  <p className={`text-lg font-bold ${
-                    isActive ? 'text-primary-600' : 'text-gray-900'
-                  }`}>
-                    {count}
-                  </p>
+                <div className={`
+                  w-16 h-16 rounded-full flex items-center justify-center bg-white border-2 border-gray-300
+                  text-gray-900 font-semibold text-lg transition-all duration-300 hover:shadow-lg hover:border-gray-400
+                  ${isActive ? 'ring-4 ring-primary-300 scale-110 border-primary-500 bg-primary-50 text-primary-700' : ''}
+                `}>
+                  {count}
                 </div>
+                <p className={`text-xs text-center mt-2 font-medium leading-tight ${
+                  isActive ? 'text-primary-600' : 'text-gray-700'
+                }`}>
+                  {stage.label}
+                </p>
+                {count > 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {count} candidate{count !== 1 ? 's' : ''}
+                  </p>
+                )}
               </div>
             )
           })}
         </div>
         
-        {analytics.summary && (
-          <div className="mt-6 p-4 bg-primary-50 rounded-lg border border-primary-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-primary-800 font-semibold text-lg">{analytics.summary}</p>
-                <p className="text-primary-600 text-sm mt-1">
-                  Pipeline conversion rate: {analytics.conversionRate}%
-                </p>
-              </div>
-              <div className="text-primary-600">
-                <CheckCircle className="w-8 h-8" />
-              </div>
-            </div>
-          </div>
-        )}
+
       </div>
 
-      {/* Workflow Stepper */}
-      <div className="mb-8">
-        <WorkflowStepper 
-          stages={workflowStages}
-          currentStage={selectedStage}
-          onStageChange={handleStageChange}
-          stageCounts={analytics.stageCounts}
-        />
-      </div>
+
 
       {/* Tabs */}
       <div className="mb-6">
@@ -406,6 +406,33 @@ const Workflow = () => {
         </div>
       )}
 
+      {/* Pagination Controls - Top */}
+      {filteredCandidates.length > 0 && (
+        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <PaginationInfo
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalCandidates}
+              itemsPerPage={itemsPerPage}
+            />
+            <div className="flex items-center gap-4">
+              <ItemsPerPageSelector
+                value={itemsPerPage}
+                onChange={handleItemsPerPageChange}
+                options={[5, 10, 25, 50]}
+              />
+              <InteractivePagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+                size="sm"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Candidates List */}
       <div className="space-y-6">
         {filteredCandidates.length === 0 ? (
@@ -420,46 +447,49 @@ const Workflow = () => {
             </p>
           </div>
         ) : activeTab === 'by-job' ? (
-          // Group by Job Post view
-          Object.entries(candidatesByJob).map(([jobTitle, jobCandidates]) => (
-            <div key={jobTitle} className="card p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                    <Briefcase className="w-5 h-5 mr-2 text-primary-600" />
-                    {jobTitle}
-                  </h3>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {jobCandidates.length} candidate{jobCandidates.length !== 1 ? 's' : ''} in {workflowStages.find(s => s.id === selectedStage)?.label} stage
-                  </p>
+          // Group by Job Post view - paginated
+          (() => {
+            const paginatedJobEntries = Object.entries(candidatesByJob).slice(startIndex, endIndex)
+            return paginatedJobEntries.map(([jobTitle, jobCandidates]) => (
+              <div key={jobTitle} className="card p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                      <Briefcase className="w-5 h-5 mr-2 text-primary-600" />
+                      {jobTitle}
+                    </h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {jobCandidates.length} candidate{jobCandidates.length !== 1 ? 's' : ''} in {workflowStages.find(s => s.id === selectedStage)?.label} stage
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="chip chip-blue">
+                      {jobCandidates.length}
+                    </span>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <span className="chip chip-blue">
-                    {jobCandidates.length}
-                  </span>
+                
+                <div className="space-y-3">
+                  {jobCandidates.map((candidate) => (
+                    <CandidateWorkflowCard
+                      key={candidate.id}
+                      candidate={candidate}
+                      onCandidateClick={handleCandidateClick}
+                      onUpdateStatus={handleUpdateStatus}
+                      onAttachDocument={handleAttachDocument}
+                      workflowStages={workflowStages}
+                      showJobTitle={false}
+                      compact={true}
+                    />
+                  ))}
                 </div>
               </div>
-              
-              <div className="space-y-3">
-                {jobCandidates.map((candidate) => (
-                  <CandidateWorkflowCard
-                    key={candidate.id}
-                    candidate={candidate}
-                    onCandidateClick={handleCandidateClick}
-                    onUpdateStatus={handleUpdateStatus}
-                    onAttachDocument={handleAttachDocument}
-                    workflowStages={workflowStages}
-                    showJobTitle={false}
-                    compact={true}
-                  />
-                ))}
-              </div>
-            </div>
-          ))
+            ))
+          })()
         ) : (
-          // By Applicant view
+          // By Applicant view - paginated
           <div className="space-y-4">
-            {filteredCandidates.map((candidate) => (
+            {paginatedCandidates.map((candidate) => (
               <CandidateWorkflowCard
                 key={candidate.id}
                 candidate={candidate}
@@ -473,6 +503,18 @@ const Workflow = () => {
           </div>
         )}
       </div>
+
+      {/* Pagination Controls - Bottom */}
+      {filteredCandidates.length > itemsPerPage && (
+        <div className="mt-8 flex justify-center">
+          <InteractivePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+            size="md"
+          />
+        </div>
+      )}
 
       {/* Candidate Summary Sidebar */}
       <CandidateSummaryS2

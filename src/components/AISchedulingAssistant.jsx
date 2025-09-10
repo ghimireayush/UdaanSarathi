@@ -3,374 +3,374 @@ import aiSchedulingService from '../services/aiSchedulingService'
 import { formatInNepalTz } from '../utils/nepaliDate'
 
 const AISchedulingAssistant = ({
-    existingMeetings = [],
-    participants = [],
-    onScheduleSelect,
-    constraints = {},
-    className = ''
+  existingMeetings = [],
+  participants = [],
+  onScheduleSelect,
+  constraints = {},
+  className = ''
 }) => {
-    const [suggestions, setSuggestions] = useState([])
-    const [recommendations, setRecommendations] = useState([])
-    const [analytics, setAnalytics] = useState(null)
-    const [loading, setLoading] = useState(false)
-    const [error, setError] = useState(null)
-    const [selectedSlot, setSelectedSlot] = useState(null)
-    const [autoScheduleMode, setAutoScheduleMode] = useState(false)
-    const [schedulingConstraints, setSchedulingConstraints] = useState({
-        duration: 60,
-        priority: 'medium',
-        meetingType: 'interview',
-        dateRange: {
-            start: new Date(),
-            end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-        },
-        ...constraints
-    })
+  const [suggestions, setSuggestions] = useState([])
+  const [recommendations, setRecommendations] = useState([])
+  const [analytics, setAnalytics] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [selectedSlot, setSelectedSlot] = useState(null)
+  const [autoScheduleMode, setAutoScheduleMode] = useState(false)
+  const [schedulingConstraints, setSchedulingConstraints] = useState({
+    duration: 60,
+    priority: 'medium',
+    meetingType: 'interview',
+    dateRange: {
+      start: new Date(),
+      end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    },
+    ...constraints
+  })
 
-    // Generate AI scheduling suggestions
-    const generateSuggestions = useCallback(async () => {
-        if (participants.length === 0) return
+  // Generate AI scheduling suggestions
+  const generateSuggestions = useCallback(async () => {
+    if (participants.length === 0) return
 
-        setLoading(true)
-        setError(null)
+    setLoading(true)
+    setError(null)
 
-        try {
-            const result = await aiSchedulingService.generateSchedulingSuggestions(
-                existingMeetings,
-                participants,
-                schedulingConstraints
-            )
+    try {
+      const result = await aiSchedulingService.generateSchedulingSuggestions(
+        existingMeetings,
+        participants,
+        schedulingConstraints
+      )
 
-            setSuggestions(result.suggestions)
-            setRecommendations(result.recommendations)
-            setAnalytics(result.analytics)
-        } catch (err) {
-            setError(err.message)
-        } finally {
-            setLoading(false)
-        }
-    }, [existingMeetings, participants, schedulingConstraints])
-
-    // Auto-schedule multiple meetings
-    const handleAutoSchedule = useCallback(async (meetings) => {
-        setLoading(true)
-        setError(null)
-
-        try {
-            const result = await aiSchedulingService.autoScheduleMeetings(
-                meetings,
-                { existingMeetings, ...schedulingConstraints }
-            )
-
-            // Handle results
-            if (result.scheduled.length > 0) {
-                result.scheduled.forEach(meeting => {
-                    onScheduleSelect?.(meeting)
-                })
-            }
-
-            return result
-        } catch (err) {
-            setError(err.message)
-            return null
-        } finally {
-            setLoading(false)
-        }
-    }, [existingMeetings, schedulingConstraints, onScheduleSelect])
-
-    // Handle slot selection
-    const handleSlotSelect = (slot) => {
-        setSelectedSlot(slot)
-        onScheduleSelect?.(slot)
+      setSuggestions(result.suggestions)
+      setRecommendations(result.recommendations)
+      setAnalytics(result.analytics)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
     }
+  }, [existingMeetings, participants, schedulingConstraints])
 
-    // Update constraints
-    const updateConstraints = (newConstraints) => {
-        setSchedulingConstraints(prev => ({ ...prev, ...newConstraints }))
+  // Auto-schedule multiple meetings
+  const handleAutoSchedule = useCallback(async (meetings) => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const result = await aiSchedulingService.autoScheduleMeetings(
+        meetings,
+        { existingMeetings, ...schedulingConstraints }
+      )
+
+      // Handle results
+      if (result.scheduled.length > 0) {
+        result.scheduled.forEach(meeting => {
+          onScheduleSelect?.(meeting)
+        })
+      }
+
+      return result
+    } catch (err) {
+      setError(err.message)
+      return null
+    } finally {
+      setLoading(false)
     }
+  }, [existingMeetings, schedulingConstraints, onScheduleSelect])
 
-    // Generate suggestions when dependencies change
-    useEffect(() => {
-        generateSuggestions()
-    }, [generateSuggestions])
+  // Handle slot selection
+  const handleSlotSelect = (slot) => {
+    setSelectedSlot(slot)
+    onScheduleSelect?.(slot)
+  }
 
-    const ScoreIndicator = ({ score, factors }) => (
-        <div className="score-indicator">
-            <div className="score-circle" data-score={Math.round(score / 10)}>
-                <span className="score-value">{score}</span>
+  // Update constraints
+  const updateConstraints = (newConstraints) => {
+    setSchedulingConstraints(prev => ({ ...prev, ...newConstraints }))
+  }
+
+  // Generate suggestions when dependencies change
+  useEffect(() => {
+    generateSuggestions()
+  }, [generateSuggestions])
+
+  const ScoreIndicator = ({ score, factors }) => (
+    <div className="score-indicator">
+      <div className="score-circle" data-score={Math.round(score / 10)}>
+        <span className="score-value">{score}</span>
+      </div>
+      <div className="score-factors">
+        {Object.entries(factors).map(([factor, value]) => (
+          <div key={factor} className="factor">
+            <span className="factor-name">{factor.replace(/([A-Z])/g, ' $1').toLowerCase()}</span>
+            <div className="factor-bar">
+              <div
+                className="factor-fill"
+                style={{ width: `${Math.min(value, 100)}%` }}
+              />
             </div>
-            <div className="score-factors">
-                {Object.entries(factors).map(([factor, value]) => (
-                    <div key={factor} className="factor">
-                        <span className="factor-name">{factor.replace(/([A-Z])/g, ' $1').toLowerCase()}</span>
-                        <div className="factor-bar">
-                            <div
-                                className="factor-fill"
-                                style={{ width: `${Math.min(value, 100)}%` }}
-                            />
-                        </div>
-                    </div>
-                ))}
-            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
+  const TimeSlotCard = ({ slot, isSelected, onSelect }) => (
+    <div
+      className={`time-slot-card ${isSelected ? 'selected' : ''} ${slot.score >= 80 ? 'excellent' : slot.score >= 60 ? 'good' : 'fair'}`}
+      onClick={() => onSelect(slot)}
+    >
+      <div className="slot-header">
+        <div className="slot-time">
+          <div className="date">{formatInNepalTz(slot.start, 'EEEE, MMM dd')}</div>
+          <div className="time">{slot.time} - {formatInNepalTz(slot.end, 'HH:mm')}</div>
         </div>
-    )
-
-    const TimeSlotCard = ({ slot, isSelected, onSelect }) => (
-        <div
-            className={`time-slot-card ${isSelected ? 'selected' : ''} ${slot.score >= 80 ? 'excellent' : slot.score >= 60 ? 'good' : 'fair'}`}
-            onClick={() => onSelect(slot)}
-        >
-            <div className="slot-header">
-                <div className="slot-time">
-                    <div className="date">{formatInNepalTz(slot.start, 'EEEE, MMM dd')}</div>
-                    <div className="time">{slot.time} - {formatInNepalTz(slot.end, 'HH:mm')}</div>
-                </div>
-                <div className="slot-score">
-                    <span className="score">{slot.score}</span>
-                    <span className="score-label">Score</span>
-                </div>
-            </div>
-
-            <div className="slot-details">
-                <div className="recommendation">{slot.recommendation}</div>
-
-                {slot.availability && (
-                    <div className="availability">
-                        <span className="available-count">
-                            {slot.availability.filter(p => p.available).length}/{slot.availability.length} available
-                        </span>
-                        <div className="participant-list">
-                            {slot.availability.map(participant => (
-                                <span
-                                    key={participant.id}
-                                    className={`participant ${participant.available ? 'available' : 'unavailable'}`}
-                                >
-                                    {participant.name}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            <ScoreIndicator score={slot.score} factors={slot.factors} />
+        <div className="slot-score">
+          <span className="score">{slot.score}</span>
+          <span className="score-label">Score</span>
         </div>
-    )
+      </div>
 
-    const RecommendationCard = ({ recommendation }) => (
-        <div className={`recommendation-card ${recommendation.type}`}>
-            <div className="recommendation-header">
-                <h4>{recommendation.title}</h4>
-                {recommendation.type === 'warning' && <span className="warning-icon">⚠️</span>}
-                {recommendation.type === 'optimal' && <span className="optimal-icon">⭐</span>}
-            </div>
-            <p>{recommendation.description}</p>
-            {recommendation.reason && (
-                <div className="recommendation-reason">{recommendation.reason}</div>
-            )}
-            {recommendation.slots && (
-                <div className="alternative-slots">
-                    {recommendation.slots.map((slot, index) => (
-                        <button
-                            key={index}
-                            className="alternative-slot"
-                            onClick={() => handleSlotSelect(slot)}
-                        >
-                            {formatInNepalTz(slot.start, 'MMM dd, HH:mm')} (Score: {slot.score})
-                        </button>
-                    ))}
-                </div>
-            )}
-        </div>
-    )
+      <div className="slot-details">
+        <div className="recommendation">{slot.recommendation}</div>
 
-    const ConstraintsPanel = () => (
-        <div className="constraints-panel">
-            <h3>Scheduling Preferences</h3>
-
-            <div className="constraint-group">
-                <label>Meeting Duration</label>
-                <select
-                    value={schedulingConstraints.duration}
-                    onChange={(e) => updateConstraints({ duration: parseInt(e.target.value) })}
+        {slot.availability && (
+          <div className="availability">
+            <span className="available-count">
+              {slot.availability.filter(p => p.available).length}/{slot.availability.length} available
+            </span>
+            <div className="participant-list">
+              {slot.availability.map(participant => (
+                <span
+                  key={participant.id}
+                  className={`participant ${participant.available ? 'available' : 'unavailable'}`}
                 >
-                    <option value={30}>30 minutes</option>
-                    <option value={45}>45 minutes</option>
-                    <option value={60}>1 hour</option>
-                    <option value={90}>1.5 hours</option>
-                    <option value={120}>2 hours</option>
-                </select>
+                  {participant.name}
+                </span>
+              ))}
             </div>
+          </div>
+        )}
+      </div>
 
-            <div className="constraint-group">
-                <label>Priority</label>
-                <select
-                    value={schedulingConstraints.priority}
-                    onChange={(e) => updateConstraints({ priority: e.target.value })}
-                >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
-                </select>
-            </div>
+      <ScoreIndicator score={slot.score} factors={slot.factors} />
+    </div>
+  )
 
-            <div className="constraint-group">
-                <label>Meeting Type</label>
-                <select
-                    value={schedulingConstraints.meetingType}
-                    onChange={(e) => updateConstraints({ meetingType: e.target.value })}
-                >
-                    <option value="interview">Interview</option>
-                    <option value="meeting">Meeting</option>
-                    <option value="presentation">Presentation</option>
-                    <option value="review">Review</option>
-                </select>
-            </div>
-
-            <div className="constraint-group">
-                <label>Date Range</label>
-                <div className="date-range">
-                    <input
-                        type="date"
-                        value={schedulingConstraints.dateRange.start.toISOString().split('T')[0]}
-                        onChange={(e) => updateConstraints({
-                            dateRange: {
-                                ...schedulingConstraints.dateRange,
-                                start: new Date(e.target.value)
-                            }
-                        })}
-                    />
-                    <span>to</span>
-                    <input
-                        type="date"
-                        value={schedulingConstraints.dateRange.end.toISOString().split('T')[0]}
-                        onChange={(e) => updateConstraints({
-                            dateRange: {
-                                ...schedulingConstraints.dateRange,
-                                end: new Date(e.target.value)
-                            }
-                        })}
-                    />
-                </div>
-            </div>
-
+  const RecommendationCard = ({ recommendation }) => (
+    <div className={`recommendation-card ${recommendation.type}`}>
+      <div className="recommendation-header">
+        <h4>{recommendation.title}</h4>
+        {recommendation.type === 'warning' && <span className="warning-icon">⚠️</span>}
+        {recommendation.type === 'optimal' && <span className="optimal-icon">⭐</span>}
+      </div>
+      <p>{recommendation.description}</p>
+      {recommendation.reason && (
+        <div className="recommendation-reason">{recommendation.reason}</div>
+      )}
+      {recommendation.slots && (
+        <div className="alternative-slots">
+          {recommendation.slots.map((slot, index) => (
             <button
-                className="refresh-suggestions"
-                onClick={generateSuggestions}
-                disabled={loading}
+              key={index}
+              className="alternative-slot"
+              onClick={() => handleSlotSelect(slot)}
             >
-                {loading ? 'Analyzing...' : 'Refresh Suggestions'}
+              {formatInNepalTz(slot.start, 'MMM dd, HH:mm')} (Score: {slot.score})
             </button>
+          ))}
         </div>
-    )
+      )}
+    </div>
+  )
 
-    const AnalyticsPanel = () => analytics && (
-        <div className="analytics-panel">
-            <h3>Scheduling Analytics</h3>
-            <div className="analytics-grid">
-                <div className="metric">
-                    <span className="metric-value">{analytics.totalSlotsAnalyzed}</span>
-                    <span className="metric-label">Slots Analyzed</span>
-                </div>
-                <div className="metric">
-                    <span className="metric-value">{Math.round(analytics.averageScore)}</span>
-                    <span className="metric-label">Avg Score</span>
-                </div>
-                <div className="metric">
-                    <span className="metric-value">{analytics.bestTimeOfDay}</span>
-                    <span className="metric-label">Best Time</span>
-                </div>
-                <div className="metric">
-                    <span className="metric-value">{analytics.bestDayOfWeek}</span>
-                    <span className="metric-label">Best Day</span>
-                </div>
-            </div>
+  const ConstraintsPanel = () => (
+    <div className="constraints-panel">
+      <h3>Scheduling Preferences</h3>
+
+      <div className="constraint-group">
+        <label>Meeting Duration</label>
+        <select
+          value={schedulingConstraints.duration}
+          onChange={(e) => updateConstraints({ duration: parseInt(e.target.value) })}
+        >
+          <option value={30}>30 minutes</option>
+          <option value={45}>45 minutes</option>
+          <option value={60}>1 hour</option>
+          <option value={90}>1.5 hours</option>
+          <option value={120}>2 hours</option>
+        </select>
+      </div>
+
+      <div className="constraint-group">
+        <label>Priority</label>
+        <select
+          value={schedulingConstraints.priority}
+          onChange={(e) => updateConstraints({ priority: e.target.value })}
+        >
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+          <option value="urgent">Urgent</option>
+        </select>
+      </div>
+
+      <div className="constraint-group">
+        <label>Meeting Type</label>
+        <select
+          value={schedulingConstraints.meetingType}
+          onChange={(e) => updateConstraints({ meetingType: e.target.value })}
+        >
+          <option value="interview">Interview</option>
+          <option value="meeting">Meeting</option>
+          <option value="presentation">Presentation</option>
+          <option value="review">Review</option>
+        </select>
+      </div>
+
+      <div className="constraint-group">
+        <label>Date Range</label>
+        <div className="date-range">
+          <input
+            type="date"
+            value={schedulingConstraints.dateRange.start.toISOString().split('T')[0]}
+            onChange={(e) => updateConstraints({
+              dateRange: {
+                ...schedulingConstraints.dateRange,
+                start: new Date(e.target.value)
+              }
+            })}
+          />
+          <span>to</span>
+          <input
+            type="date"
+            value={schedulingConstraints.dateRange.end.toISOString().split('T')[0]}
+            onChange={(e) => updateConstraints({
+              dateRange: {
+                ...schedulingConstraints.dateRange,
+                end: new Date(e.target.value)
+              }
+            })}
+          />
         </div>
-    )
+      </div>
 
-    return (
-        <div className={`ai-scheduling-assistant ${className}`}>
-            <div className="assistant-header">
-                <h2>AI Scheduling Assistant</h2>
-                <div className="assistant-controls">
-                    <label className="auto-schedule-toggle">
-                        <input
-                            type="checkbox"
-                            checked={autoScheduleMode}
-                            onChange={(e) => setAutoScheduleMode(e.target.checked)}
-                        />
-                        Auto-schedule mode
-                    </label>
-                </div>
+      <button
+        className="refresh-suggestions"
+        onClick={generateSuggestions}
+        disabled={loading}
+      >
+        {loading ? 'Analyzing...' : 'Refresh Suggestions'}
+      </button>
+    </div>
+  )
+
+  const AnalyticsPanel = () => analytics && (
+    <div className="analytics-panel">
+      <h3>Scheduling Analytics</h3>
+      <div className="analytics-grid">
+        <div className="metric">
+          <span className="metric-value">{analytics.totalSlotsAnalyzed}</span>
+          <span className="metric-label">Slots Analyzed</span>
+        </div>
+        <div className="metric">
+          <span className="metric-value">{Math.round(analytics.averageScore)}</span>
+          <span className="metric-label">Avg Score</span>
+        </div>
+        <div className="metric">
+          <span className="metric-value">{analytics.bestTimeOfDay}</span>
+          <span className="metric-label">Best Time</span>
+        </div>
+        <div className="metric">
+          <span className="metric-value">{analytics.bestDayOfWeek}</span>
+          <span className="metric-label">Best Day</span>
+        </div>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className={`ai-scheduling-assistant ${className}`}>
+      <div className="assistant-header">
+        <h2>AI Scheduling Assistant</h2>
+        <div className="assistant-controls">
+          <label className="auto-schedule-toggle">
+            <input
+              type="checkbox"
+              checked={autoScheduleMode}
+              onChange={(e) => setAutoScheduleMode(e.target.checked)}
+            />
+            Auto-schedule mode
+          </label>
+        </div>
+      </div>
+
+      {error && (
+        <div className="error-message">
+          <span className="error-icon">❌</span>
+          {error}
+        </div>
+      )}
+
+      <div className="assistant-content">
+        <div className="left-panel">
+          <ConstraintsPanel />
+          <AnalyticsPanel />
+        </div>
+
+        <div className="main-panel">
+          {loading && (
+            <div className="loading-state">
+              <div className="loading-spinner"></div>
+              <p>Analyzing optimal scheduling options...</p>
             </div>
+          )}
 
-            {error && (
-                <div className="error-message">
-                    <span className="error-icon">❌</span>
-                    {error}
-                </div>
-            )}
-
-            <div className="assistant-content">
-                <div className="left-panel">
-                    <ConstraintsPanel />
-                    <AnalyticsPanel />
-                </div>
-
-                <div className="main-panel">
-                    {loading && (
-                        <div className="loading-state">
-                            <div className="loading-spinner"></div>
-                            <p>Analyzing optimal scheduling options...</p>
-                        </div>
-                    )}
-
-                    {recommendations.length > 0 && (
-                        <div className="recommendations-section">
-                            <h3>AI Recommendations</h3>
-                            <div className="recommendations-list">
-                                {recommendations
-                                    .sort((a, b) => a.priority - b.priority)
-                                    .map((rec, index) => (
-                                        <RecommendationCard key={index} recommendation={rec} />
-                                    ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {suggestions.length > 0 && (
-                        <div className="suggestions-section">
-                            <h3>Suggested Time Slots</h3>
-                            <div className="suggestions-list">
-                                {suggestions.map((slot, index) => (
-                                    <TimeSlotCard
-                                        key={index}
-                                        slot={slot}
-                                        isSelected={selectedSlot === slot}
-                                        onSelect={handleSlotSelect}
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {!loading && suggestions.length === 0 && participants.length > 0 && (
-                        <div className="no-suggestions">
-                            <p>No suitable time slots found with current constraints.</p>
-                            <p>Try adjusting the date range or meeting duration.</p>
-                        </div>
-                    )}
-
-                    {participants.length === 0 && (
-                        <div className="no-participants">
-                            <p>Add participants to get AI scheduling suggestions.</p>
-                        </div>
-                    )}
-                </div>
+          {recommendations.length > 0 && (
+            <div className="recommendations-section">
+              <h3>AI Recommendations</h3>
+              <div className="recommendations-list">
+                {recommendations
+                  .sort((a, b) => a.priority - b.priority)
+                  .map((rec, index) => (
+                    <RecommendationCard key={index} recommendation={rec} />
+                  ))}
+              </div>
             </div>
+          )}
 
-            <style jsx>{`
+          {suggestions.length > 0 && (
+            <div className="suggestions-section">
+              <h3>Suggested Time Slots</h3>
+              <div className="suggestions-list">
+                {suggestions.map((slot, index) => (
+                  <TimeSlotCard
+                    key={index}
+                    slot={slot}
+                    isSelected={selectedSlot === slot}
+                    onSelect={handleSlotSelect}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!loading && suggestions.length === 0 && participants.length > 0 && (
+            <div className="no-suggestions">
+              <p>No suitable time slots found with current constraints.</p>
+              <p>Try adjusting the date range or meeting duration.</p>
+            </div>
+          )}
+
+          {participants.length === 0 && (
+            <div className="no-participants">
+              <p>Add participants to get AI scheduling suggestions.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <style jsx>{`
         .ai-scheduling-assistant {
           background: white;
           border-radius: 8px;
@@ -815,21 +815,8 @@ const AISchedulingAssistant = ({
           cursor: not-allowed;
         }
       `}</style>
-            {autoScheduleMode && (
-                <div className="auto-schedule-panel">
-                    <h3>Auto-Schedule Mode</h3>
-                    <p>AI will automatically schedule meetings based on optimal time slots.</p>
-                    <button
-                        onClick={() => handleAutoSchedule(suggestions.slice(0, 3))}
-                        disabled={loading || suggestions.length === 0}
-                        className="auto-schedule-btn"
-                    >
-                        {loading ? 'Scheduling...' : 'Auto-Schedule Top 3 Slots'}
-                    </button>
-                </div>
-            )}
-        </div>
-    )
+    </div>
+  )
 }
 
 export default AISchedulingAssistant

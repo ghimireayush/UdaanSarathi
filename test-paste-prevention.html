@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Test Paste Prevention</title>
+</head>
+
+<body>
+    <h2>Test Paste Prevention</h2>
+    <p>Try to paste something in these fields:</p>
+
+    <div>
+        <label>Username:</label>
+        <input type="text" id="username" onpaste="handlePaste(event)" />
+    </div>
+
+    <div>
+        <label>Password:</label>
+        <input type="password" id="password" onpaste="handlePaste(event)" />
+    </div>
+
+    <div id="error" style="color: red; margin-top: 10px;"></div>
+
+    <script>
+        function handlePaste(e) {
+            e.preventDefault();
+            document.getElementById('error').textContent = 'Pasting is disabled for security reasons. Please type your credentials.';
+            setTimeout(() => {
+                document.getElementById('error').textContent = '';
+            }, 3000);
+            return false;
+        }
+    </script>
+</body>
+
+</html>
