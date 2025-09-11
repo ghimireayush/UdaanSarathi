@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+
 import { Link } from 'react-router-dom'
 import {
   Search,
@@ -64,6 +65,8 @@ const Applications = () => {
   const [applicationStages, setApplicationStages] = useState({})
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true)
+
   const [isUpdating, setIsUpdating] = useState(false)
   const [loadTime, setLoadTime] = useState(null)
   const [viewMode, setViewMode] = useState('list') // 'grid' or 'list'
@@ -117,70 +120,86 @@ const Applications = () => {
   )
 
   // Fetch applications data using service with performance optimization
+  const fetchApplicationsData = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const startTime = performance.now()
+
+      const paginationParams = {
+        page: pagination.page,
+        limit: pagination.limit,
+        search: filters.search,
+        stage: filters.stage,
+        country: filters.country,
+        jobId: filters.jobId,
+        sortBy: 'applied_at',
+        sortOrder: 'desc'
+      }
+
+      console.log('Fetching applications with filters:', paginationParams);
+
+      const applicationsResult = await applicationService.getApplicationsPaginated(paginationParams)
+      console.log('Applications result:', applicationsResult)
+      const [jobsData, stagesData] = await Promise.all([
+        jobService.getJobs({ status: 'published' }),
+        constantsService.getApplicationStages()
+      ])
+
+      const applications = applicationsResult.data || applicationsResult
+      const total = applicationsResult.total || applications.length
+
+      setApplications(applications)
+      setPagination(prevPagination => ({
+        ...prevPagination,
+        total: total,
+        totalPages: Math.ceil(total / prevPagination.limit)
+      }))
+
+      console.log('Pagination updated:', { total, totalPages: Math.ceil(total / pagination.limit), limit: pagination.limit })
+      setJobs(jobsData)
+      setApplicationStages(stagesData)
+
+      const endTime = performance.now()
+      const loadTime = endTime - startTime
+      setLoadTime(loadTime)
+
+      announce(t('applications.loaded', {
+        count: applicationsResult.data?.length || applicationsResult.length,
+        time: Math.round(loadTime)
+      }))
+
+    } catch (err) {
+      console.error('Failed to fetch applications data:', err)
+      setError(err)
+      announce(t('common.error'), 'assertive')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [pagination.page, pagination.limit, filters.search, filters.stage, filters.country, filters.jobId, t, announce])
+
   useEffect(() => {
-    const fetchApplicationsData = async () => {
-      try {
-        setIsLoading(true)
-        setError(null)
-        const startTime = performance.now()
+    fetchApplicationsData()
+  }, [fetchApplicationsData])
 
-        // Use performance service for paginated data
-        const paginationParams = {
-          page: pagination.page,
-          limit: pagination.limit,
-          search: filters.search,
-          stage: filters.stage,
-          country: filters.country,
-          jobId: filters.jobId,
-          sortBy: 'applied_at',
-          sortOrder: 'desc'
-        }
-
-        console.log('Fetching applications with filters:', paginationParams);
-
-        // Use the applicationService directly for better filtering
-        const applicationsResult = await applicationService.getApplicationsPaginated(paginationParams)
-        console.log('Applications result:', applicationsResult)
-        const [jobsData, stagesData] = await Promise.all([
-          jobService.getJobs({ status: 'published' }),
-          constantsService.getApplicationStages()
-        ])
-
-        const applications = applicationsResult.data || applicationsResult
-        const total = applicationsResult.total || applications.length
-
-        setApplications(applications)
-        setPagination(prevPagination => ({
-          ...prevPagination,
-          total: total,
-          totalPages: Math.ceil(total / prevPagination.limit)
-        }))
-
-        console.log('Pagination updated:', { total, totalPages: Math.ceil(total / pagination.limit), limit: pagination.limit })
-        setJobs(jobsData)
-        setApplicationStages(stagesData)
-
-        const endTime = performance.now()
-        const loadTime = endTime - startTime
-        setLoadTime(loadTime)
-
-        // Announce load completion for screen readers
-        announce(t('applications.loaded', {
-          count: applicationsResult.data?.length || applicationsResult.length,
-          time: Math.round(loadTime)
-        }))
-
-      } catch (err) {
-        console.error('Failed to fetch applications data:', err)
-        setError(err)
-        announce(t('common.error'), 'assertive')
-      } finally {
-        setIsLoading(false)
+  // Track online/offline to improve UX and auto-retry when back online
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true)
+      if (error) {
+        // Auto-retry after coming back online
+        fetchApplicationsData()
       }
     }
+    const handleOffline = () => setIsOnline(false)
 
-    fetchApplicationsData()
-  }, [filters, pagination.page, pagination.limit, announce, t])
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [error, fetchApplicationsData])
 
   const handleFilterChange = useCallback((key, value) => {
     if (key === 'search') {
@@ -226,11 +245,11 @@ const Applications = () => {
       // Perform the actual API call first
       if (targetStage === applicationStages.REJECTED && reason) {
         await applicationService.rejectApplication(applicationId, reason)
-        showToastNotification('❌ Application rejected successfully!', 'success')
+        showToastNotification(' Application rejected successfully!', 'success')
       } else {
         await applicationService.updateApplicationStage(applicationId, targetStage)
         const stageLabel = getStageLabel(targetStage)
-        showToastNotification(`✅ Application moved to ${stageLabel} successfully!`, 'success')
+        showToastNotification(` Application moved to ${stageLabel} successfully!`, 'success')
       }
 
       // Only update UI after successful API call
@@ -251,7 +270,7 @@ const Applications = () => {
 
     } catch (err) {
       console.error('Failed to update application stage:', err)
-      showToastNotification('❌ Failed to update application stage. Please try again.', 'error')
+      showToastNotification(' Failed to update application stage. Please try again.', 'error')
     } finally {
       // Clear the appropriate loading state
       if (targetStage === applicationStages.REJECTED) {
@@ -301,14 +320,14 @@ const Applications = () => {
 
       // Show success notification
       if (isCurrentlyShortlisted) {
-        showToastNotification('✅ Candidate removed from shortlist!', 'success')
+        showToastNotification(' Candidate removed from shortlist!', 'success')
       } else {
-        showToastNotification('✅ Candidate shortlisted successfully!', 'success')
+        showToastNotification(' Candidate shortlisted successfully!', 'success')
       }
 
     } catch (err) {
       console.error('Failed to toggle shortlist:', err)
-      showToastNotification('❌ Failed to update shortlist status. Please try again.', 'error')
+      showToastNotification(' Failed to update shortlist status. Please try again.', 'error')
     } finally {
       setShortlistingApps(prev => {
         const newSet = new Set(prev)
@@ -346,13 +365,13 @@ const Applications = () => {
           )
         )
 
-        showToastNotification(`✅ ${applicationIds.length} applications shortlisted successfully!`, 'success')
+        showToastNotification(` ${applicationIds.length} applications shortlisted successfully!`, 'success')
       }
 
       setSelectedApplications(new Set())
     } catch (err) {
       console.error('Failed to perform bulk action:', err)
-      showToastNotification('❌ Failed to perform bulk action. Please try again.', 'error')
+      showToastNotification(' Failed to perform bulk action. Please try again.', 'error')
     } finally {
       setIsUpdating(false)
     }
@@ -379,7 +398,7 @@ const Applications = () => {
         )
       )
 
-      showToastNotification(`❌ ${applicationIds.length} applications rejected successfully!`, 'success')
+      showToastNotification(` ${applicationIds.length} applications rejected successfully!`, 'success')
       setSelectedApplications(new Set())
 
       // Close modal and reset
@@ -387,7 +406,7 @@ const Applications = () => {
       setBulkRejectionReason('')
     } catch (err) {
       console.error('Failed to perform bulk rejection:', err)
-      showToastNotification('❌ Failed to perform bulk rejection. Please try again.', 'error')
+      showToastNotification(' Failed to perform bulk rejection. Please try again.', 'error')
     } finally {
       setIsUpdating(false)
     }
@@ -443,9 +462,11 @@ const Applications = () => {
         <div className="card p-8 text-center">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Failed to load applications</h2>
-          <p className="text-gray-600 mb-4">{error.message}</p>
+          <p className="text-gray-600 mb-4">
+            {!isOnline ? 'You appear to be offline. Please check your internet connection.' : (error.message || 'An unexpected error occurred.')}
+          </p>
           <button
-            onClick={() => window.location.reload()}
+            onClick={fetchApplicationsData}
             className="btn-primary"
           >
             Retry

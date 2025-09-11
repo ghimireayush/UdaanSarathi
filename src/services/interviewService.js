@@ -5,6 +5,8 @@ import jobService from './jobService.js'
 import applicationService from './applicationService.js'
 import constantsService from './constantsService.js'
 import { handleServiceError } from '../utils/errorHandler.js'
+import auditService from './auditService.js'
+import authService from './authService.js'
 
 // Utility function to simulate API delay
 const delay = (ms = 300) => new Promise(resolve => setTimeout(resolve, ms))
@@ -165,6 +167,21 @@ class InterviewService {
 
       interviewsCache.push(newInterview)
 
+      // Audit: interview scheduled
+      try {
+        const actor = authService.getCurrentUser() || { id: 'system', name: 'System' }
+        await auditService.logEvent({
+          user_id: actor.id,
+          user_name: actor.name,
+          action: 'CREATE',
+          resource_type: 'INTERVIEW',
+          resource_id: newInterview.id,
+          new_values: newInterview
+        })
+      } catch (e) {
+        console.warn('Audit logging (SCHEDULE INTERVIEW) failed:', e)
+      }
+
       // Update candidate stage to scheduled
       if (interviewData.candidate_id) {
         const appConstants = await constantsService.getApplicationStages()
@@ -195,13 +212,31 @@ class InterviewService {
       return null
     }
 
+    const before = deepClone(interviewsCache[interviewIndex])
     interviewsCache[interviewIndex] = {
       ...interviewsCache[interviewIndex],
       ...updateData,
       updated_at: new Date().toISOString()
     }
 
-    return deepClone(interviewsCache[interviewIndex])
+    const updated = deepClone(interviewsCache[interviewIndex])
+    // Audit: interview updated
+    try {
+      const actor = authService.getCurrentUser() || { id: 'system', name: 'System' }
+      await auditService.logEvent({
+        user_id: actor.id,
+        user_name: actor.name,
+        action: 'UPDATE',
+        resource_type: 'INTERVIEW',
+        resource_id: interviewId,
+        changes: updateData,
+        old_values: before,
+        new_values: updated
+      })
+    } catch (e) {
+      console.warn('Audit logging (UPDATE INTERVIEW) failed:', e)
+    }
+    return updated
   }
 
   /**
@@ -214,10 +249,26 @@ class InterviewService {
     await delay(300)
     const constants = await constantsService.getInterviewStatuses()
     
-    return this.updateInterview(interviewId, {
+    const updateData = {
       status: constants.CANCELLED,
       notes: reason
-    })
+    }
+    const res = await this.updateInterview(interviewId, updateData)
+    try {
+      const actor = authService.getCurrentUser() || { id: 'system', name: 'System' }
+      await auditService.logEvent({
+        user_id: actor.id,
+        user_name: actor.name,
+        action: 'UPDATE',
+        resource_type: 'INTERVIEW',
+        resource_id: interviewId,
+        changes: updateData,
+        metadata: { action: 'CANCEL' }
+      })
+    } catch (e) {
+      console.warn('Audit logging (CANCEL INTERVIEW) failed:', e)
+    }
+    return res
   }
 
   /**
@@ -230,10 +281,11 @@ class InterviewService {
     await delay(400)
     const constants = await constantsService.getInterviewStatuses()
     
-    const updatedInterview = await this.updateInterview(interviewId, {
+    const updateData = {
       status: constants.COMPLETED,
       ...completionData
-    })
+    }
+    const updatedInterview = await this.updateInterview(interviewId, updateData)
 
     // Update candidate stage to interviewed
     if (updatedInterview && updatedInterview.candidate_id) {
@@ -244,6 +296,21 @@ class InterviewService {
       )
     }
 
+    // Audit: completed interview
+    try {
+      const actor = authService.getCurrentUser() || { id: 'system', name: 'System' }
+      await auditService.logEvent({
+        user_id: actor.id,
+        user_name: actor.name,
+        action: 'UPDATE',
+        resource_type: 'INTERVIEW',
+        resource_id: interviewId,
+        changes: updateData,
+        metadata: { action: 'COMPLETE' }
+      })
+    } catch (e) {
+      console.warn('Audit logging (COMPLETE INTERVIEW) failed:', e)
+    }
     return updatedInterview
   }
 
@@ -257,10 +324,26 @@ class InterviewService {
     await delay(300)
     const constants = await constantsService.getInterviewStatuses()
     
-    return this.updateInterview(interviewId, {
+    const updateData = {
       status: constants.NO_SHOW,
       notes: notes
-    })
+    }
+    const res = await this.updateInterview(interviewId, updateData)
+    try {
+      const actor = authService.getCurrentUser() || { id: 'system', name: 'System' }
+      await auditService.logEvent({
+        user_id: actor.id,
+        user_name: actor.name,
+        action: 'UPDATE',
+        resource_type: 'INTERVIEW',
+        resource_id: interviewId,
+        changes: updateData,
+        metadata: { action: 'NO_SHOW' }
+      })
+    } catch (e) {
+      console.warn('Audit logging (NO_SHOW INTERVIEW) failed:', e)
+    }
+    return res
   }
 
   /**
@@ -271,247 +354,23 @@ class InterviewService {
    */
   async rescheduleInterview(interviewId, newDateTime) {
     await delay(300)
-    return this.updateInterview(interviewId, {
-      scheduled_at: newDateTime
-    })
-  }
-
-  /**
-   * Get interviews by date range
-   * @param {string} startDate - Start date (ISO string)
-   * @param {string} endDate - End date (ISO string)
-   * @returns {Promise<Array>} Array of interviews in date range
-   */
-  async getInterviewsByDateRange(startDate, endDate) {
-    await delay(200)
-    return interviewsCache.filter(interview => {
-      const interviewDate = new Date(interview.scheduled_at)
-      return interviewDate >= new Date(startDate) && interviewDate <= new Date(endDate)
-    })
-  }
-
-  /**
-   * Get today's interviews
-   * @returns {Promise<Array>} Array of interviews scheduled for today
-   */
-  async getTodaysInterviews() {
-    await delay(200)
-    const today = new Date()
-    const todayStr = today.toDateString()
-    
-    return interviewsCache.filter(interview => {
-      const interviewDate = new Date(interview.scheduled_at)
-      return interviewDate.toDateString() === todayStr
-    })
-  }
-
-  /**
-   * Get upcoming interviews
-   * @param {number} days - Number of days ahead to look (default: 7)
-   * @returns {Promise<Array>} Array of upcoming interviews
-   */
-  async getUpcomingInterviews(days = 7) {
-    await delay(200)
-    const now = new Date()
-    const futureDate = new Date()
-    futureDate.setDate(now.getDate() + days)
-    
-    return interviewsCache.filter(interview => {
-      const interviewDate = new Date(interview.scheduled_at)
-      return interviewDate >= now && interviewDate <= futureDate
-    })
-  }
-
-  /**
-   * Get interviews by candidate ID
-   * @param {string} candidateId - Candidate ID
-   * @returns {Promise<Array>} Array of interviews for the candidate
-   */
-  async getInterviewsByCandidateId(candidateId) {
-    await delay(200)
-    return interviewsCache.filter(interview => interview.candidate_id === candidateId)
-  }
-
-  /**
-   * Get interviews by job ID
-   * @param {string} jobId - Job ID
-   * @returns {Promise<Array>} Array of interviews for the job
-   */
-  async getInterviewsByJobId(jobId) {
-    await delay(200)
-    return interviewsCache.filter(interview => interview.job_id === jobId)
-  }
-
-  /**
-   * Get interviews by interviewer
-   * @param {string} interviewer - Interviewer name
-   * @returns {Promise<Array>} Array of interviews conducted by the interviewer
-   */
-  async getInterviewsByInterviewer(interviewer) {
-    await delay(200)
-    return interviewsCache.filter(interview => 
-      interview.interviewer.toLowerCase().includes(interviewer.toLowerCase())
-    )
-  }
-
-  /**
-   * Check for double booking conflicts
-   * @param {string} candidateId - Candidate ID
-   * @param {string} proposedDateTime - Proposed interview date/time
-   * @param {number} duration - Interview duration in minutes
-   * @param {string} excludeInterviewId - Interview ID to exclude from conflict check
-   * @returns {Promise<Array>} Array of conflicting interviews
-   */
-  async checkDoubleBooking(candidateId, proposedDateTime, duration = 60, excludeInterviewId = null) {
-    return handleServiceError(async () => {
-      await delay(100)
-      
-      const proposedStart = new Date(proposedDateTime)
-      const proposedEnd = new Date(proposedStart.getTime() + (duration * 60 * 1000))
-      
-      const conflicts = interviewsCache.filter(interview => {
-        // Skip if it's the same interview being updated
-        if (excludeInterviewId && interview.id === excludeInterviewId) return false
-        
-        // Only check for the same candidate
-        if (interview.candidate_id !== candidateId) return false
-        
-        // Skip cancelled interviews
-        if (interview.status === 'cancelled') return false
-        
-        const existingStart = new Date(interview.scheduled_at)
-        const existingEnd = new Date(existingStart.getTime() + ((interview.duration || 60) * 60 * 1000))
-        
-        // Check for time overlap
-        return (proposedStart < existingEnd && proposedEnd > existingStart)
+    const updateData = { scheduled_at: newDateTime }
+    const res = await this.updateInterview(interviewId, updateData)
+    try {
+      const actor = authService.getCurrentUser() || { id: 'system', name: 'System' }
+      await auditService.logEvent({
+        user_id: actor.id,
+        user_name: actor.name,
+        action: 'UPDATE',
+        resource_type: 'INTERVIEW',
+        resource_id: interviewId,
+        changes: updateData,
+        metadata: { action: 'RESCHEDULE' }
       })
-      
-      return conflicts
-    })
-  }
-
-  /**
-   * Schedule interview with double-booking prevention
-   * @param {Object} interviewData - Interview data
-   * @returns {Promise<Object>} Created interview
-   */
-  async scheduleInterviewSafe(interviewData) {
-    return handleServiceError(async () => {
-      // Check for double booking first
-      const conflicts = await this.checkDoubleBooking(
-        interviewData.candidate_id,
-        interviewData.scheduled_at,
-        interviewData.duration || 60
-      )
-      
-      if (conflicts.length > 0) {
-        throw new Error(`Double booking detected. Candidate already has an interview scheduled at ${conflicts[0].scheduled_at}`)
-      }
-      
-      // Proceed with scheduling if no conflicts
-      return this.scheduleInterview(interviewData)
-    })
-  }
-
-  /**
-   * Get interview statistics
-   * @returns {Promise<Object>} Interview statistics
-   */
-  async getInterviewStatistics() {
-    await delay(200)
-    const constants = await constantsService.getInterviewStatuses()
-    
-    const stats = {
-      total: interviewsCache.length,
-      byStatus: {},
-      byType: {},
-      completionRate: 0,
-      averageDuration: 0,
-      averageScore: 0,
-      successRate: 0,
-      monthlyTrend: []
+    } catch (e) {
+      console.warn('Audit logging (RESCHEDULE INTERVIEW) failed:', e)
     }
-
-    // Group by status
-    interviewsCache.forEach(interview => {
-      stats.byStatus[interview.status] = (stats.byStatus[interview.status] || 0) + 1
-    })
-
-    // Group by type
-    interviewsCache.forEach(interview => {
-      stats.byType[interview.type] = (stats.byType[interview.type] || 0) + 1
-    })
-
-    // Calculate completion rate
-    const completedCount = stats.byStatus[constants.COMPLETED] || 0
-    stats.completionRate = stats.total > 0 ? (completedCount / stats.total) * 100 : 0
-
-    // Calculate average duration
-    const totalDuration = interviewsCache.reduce((sum, interview) => sum + interview.duration, 0)
-    stats.averageDuration = stats.total > 0 ? totalDuration / stats.total : 0
-
-    // Calculate average score (for completed interviews with scores)
-    const completedWithScores = interviewsCache.filter(interview => 
-      interview.status === constants.COMPLETED && interview.score !== null
-    )
-    if (completedWithScores.length > 0) {
-      const totalScore = completedWithScores.reduce((sum, interview) => sum + interview.score, 0)
-      stats.averageScore = totalScore / completedWithScores.length
-    }
-
-    // Calculate success rate (interviews marked as passed)
-    const passedInterviews = interviewsCache.filter(interview => 
-      interview.result === 'passed' || 
-      (interview.recommendation && interview.recommendation.toLowerCase().includes('recommend'))
-    )
-    stats.successRate = completedCount > 0 ? (passedInterviews.length / completedCount) * 100 : 0
-
-    return stats
-  }
-
-  /**
-   * Get available time slots for scheduling
-   * @param {string} date - Date in YYYY-MM-DD format
-   * @param {string} interviewer - Interviewer name (optional)
-   * @returns {Promise<Array>} Array of available time slots
-   */
-  async getAvailableTimeSlots(date, interviewer = null) {
-    await delay(200)
-    
-    // Get existing interviews for the date
-    const dayInterviews = interviewsCache.filter(interview => {
-      const interviewDate = new Date(interview.scheduled_at)
-      const targetDate = new Date(date)
-      return interviewDate.toDateString() === targetDate.toDateString() &&
-             (!interviewer || interview.interviewer === interviewer)
-    })
-
-    // Generate time slots (9 AM to 6 PM, 30-minute intervals)
-    const timeSlots = []
-    const startHour = 9
-    const endHour = 18
-    
-    for (let hour = startHour; hour < endHour; hour++) {
-      for (let minute = 0; minute < 60; minute += 30) {
-        const timeSlot = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
-        
-        // Check if slot is available
-        const isBooked = dayInterviews.some(interview => {
-          const interviewTime = new Date(interview.scheduled_at)
-          const slotTime = `${interviewTime.getHours().toString().padStart(2, '0')}:${interviewTime.getMinutes().toString().padStart(2, '0')}`
-          return slotTime === timeSlot
-        })
-
-        if (!isBooked) {
-          timeSlots.push({
-            time: timeSlot,
-            available: true
-          })
-        }
-      }
-    }
-
-    return timeSlots
+    return res
   }
 
   /**
@@ -531,7 +390,22 @@ class InterviewService {
         console.error('Failed to schedule interview:', error)
       }
     }
-    
+
+    // Audit: bulk schedule interviews
+    try {
+      const actor = authService.getCurrentUser() || { id: 'system', name: 'System' }
+      await auditService.logEvent({
+        user_id: actor.id,
+        user_name: actor.name,
+        action: 'BULK_CREATE',
+        resource_type: 'INTERVIEW',
+        resource_ids: scheduledInterviews.map(interview => interview.id),
+        new_values: scheduledInterviews
+      })
+    } catch (e) {
+      console.warn('Audit logging (BULK SCHEDULE INTERVIEWS) failed:', e)
+    }
+
     return scheduledInterviews
   }
 

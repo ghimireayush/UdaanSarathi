@@ -41,10 +41,7 @@ const JobShortlist = () => {
     { id: 'scheduled', label: 'Interview Scheduled', color: 'purple' },
     { id: 'interviewed', label: 'Interviewed', color: 'indigo' },
     { id: 'interview-passed', label: 'Interview Passed', color: 'green' },
-    { id: 'medical-scheduled', label: 'Medical Scheduled', color: 'orange' },
-    { id: 'medical-passed', label: 'Medical Passed', color: 'green' },
-    { id: 'visa-application', label: 'Visa Application', color: 'blue' },
-    { id: 'visa-approved', label: 'Visa Approved', color: 'green' },
+
     { id: 'ready-to-fly', label: 'Ready to Fly', color: 'green' },
     { id: 'deployed', label: 'Deployed', color: 'green' },
     { id: 'rejected', label: 'Rejected', color: 'red' }

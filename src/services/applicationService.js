@@ -4,7 +4,9 @@ import candidateService from './candidateService.js'
 import jobService from './jobService.js'
 import constantsService from './constantsService.js'
 import performanceService from './performanceService.js'
-import { handleServiceError } from '../utils/errorHandler.js'
+import { handleServiceError, createError } from '../utils/errorHandler.js'
+import auditService from './auditService.js'
+import authService from './authService.js'
 
 // Utility function to simulate API delay (reduced for performance)
 const delay = (ms = 50) => new Promise(resolve => setTimeout(resolve, ms))
@@ -160,6 +162,20 @@ class ApplicationService {
       }
 
       applicationsCache.push(newApplication)
+      // Audit: Application created
+      try {
+        const actor = authService.getCurrentUser() || { id: 'system', name: 'System' }
+        await auditService.logEvent({
+          user_id: actor.id,
+          user_name: actor.name,
+          action: 'CREATE',
+          resource_type: 'APPLICATION',
+          resource_id: newApplication.id,
+          new_values: newApplication
+        })
+      } catch (e) {
+        console.warn('Audit logging (CREATE APPLICATION) failed:', e)
+      }
       return deepClone(newApplication)
     }, 3, 500);
   }
@@ -179,13 +195,31 @@ class ApplicationService {
       return null
     }
 
+    const before = deepClone(applicationsCache[applicationIndex])
     applicationsCache[applicationIndex] = {
       ...applicationsCache[applicationIndex],
       ...updateData,
       updated_at: new Date().toISOString()
     }
 
-    return deepClone(applicationsCache[applicationIndex])
+    const updated = deepClone(applicationsCache[applicationIndex])
+    // Audit: Application updated
+    try {
+      const actor = authService.getCurrentUser() || { id: 'system', name: 'System' }
+      await auditService.logEvent({
+        user_id: actor.id,
+        user_name: actor.name,
+        action: 'UPDATE',
+        resource_type: 'APPLICATION',
+        resource_id: applicationId,
+        changes: updateData,
+        old_values: before,
+        new_values: updated
+      })
+    } catch (e) {
+      console.warn('Audit logging (UPDATE APPLICATION) failed:', e)
+    }
+    return updated
   }
 
   /**
@@ -202,7 +236,22 @@ class ApplicationService {
       return false
     }
 
+    const removed = deepClone(applicationsCache[applicationIndex])
     applicationsCache.splice(applicationIndex, 1)
+    // Audit: Application deleted
+    try {
+      const actor = authService.getCurrentUser() || { id: 'system', name: 'System' }
+      await auditService.logEvent({
+        user_id: actor.id,
+        user_name: actor.name,
+        action: 'DELETE',
+        resource_type: 'APPLICATION',
+        resource_id: applicationId,
+        old_values: removed
+      })
+    } catch (e) {
+      console.warn('Audit logging (DELETE APPLICATION) failed:', e)
+    }
     return true
   }
 
@@ -230,8 +279,23 @@ class ApplicationService {
         updateData.decision_at = new Date().toISOString()
         break
     }
-
-    return this.updateApplication(applicationId, updateData)
+    const result = await this.updateApplication(applicationId, updateData)
+    // Audit: Stage change
+    try {
+      const actor = authService.getCurrentUser() || { id: 'system', name: 'System' }
+      await auditService.logEvent({
+        user_id: actor.id,
+        user_name: actor.name,
+        action: 'UPDATE',
+        resource_type: 'APPLICATION',
+        resource_id: applicationId,
+        changes: updateData,
+        metadata: { stage_change: true }
+      })
+    } catch (e) {
+      console.warn('Audit logging (STAGE UPDATE APPLICATION) failed:', e)
+    }
+    return result
   }
 
   /**
@@ -244,11 +308,27 @@ class ApplicationService {
     await delay(300)
     const constants = await constantsService.getApplicationStages()
     
-    return this.updateApplication(applicationId, {
+    const updateData = {
       stage: constants.SHORTLISTED,
       shortlisted_at: new Date().toISOString(),
       recruiter_notes: notes
-    })
+    }
+    const res = await this.updateApplication(applicationId, updateData)
+    try {
+      const actor = authService.getCurrentUser() || { id: 'system', name: 'System' }
+      await auditService.logEvent({
+        user_id: actor.id,
+        user_name: actor.name,
+        action: 'UPDATE',
+        resource_type: 'APPLICATION',
+        resource_id: applicationId,
+        changes: updateData,
+        metadata: { action: 'SHORTLIST' }
+      })
+    } catch (e) {
+      console.warn('Audit logging (SHORTLIST APPLICATION) failed:', e)
+    }
+    return res
   }
 
   /**
@@ -261,12 +341,28 @@ class ApplicationService {
     await delay(300)
     const constants = await constantsService.getApplicationStages()
     
-    return this.updateApplication(applicationId, {
+    const updateData = {
       stage: constants.REJECTED,
       decision_at: new Date().toISOString(),
       notes: reason,
       status: 'rejected'
-    })
+    }
+    const res = await this.updateApplication(applicationId, updateData)
+    try {
+      const actor = authService.getCurrentUser() || { id: 'system', name: 'System' }
+      await auditService.logEvent({
+        user_id: actor.id,
+        user_name: actor.name,
+        action: 'UPDATE',
+        resource_type: 'APPLICATION',
+        resource_id: applicationId,
+        changes: updateData,
+        metadata: { action: 'REJECT' }
+      })
+    } catch (e) {
+      console.warn('Audit logging (REJECT APPLICATION) failed:', e)
+    }
+    return res
   }
 
   /**
@@ -279,11 +375,27 @@ class ApplicationService {
     await delay(300)
     const constants = await constantsService.getApplicationStages()
     
-    return this.updateApplication(applicationId, {
+    const updateData = {
       stage: constants.SELECTED,
       decision_at: new Date().toISOString(),
       recruiter_notes: notes
-    })
+    }
+    const res = await this.updateApplication(applicationId, updateData)
+    try {
+      const actor = authService.getCurrentUser() || { id: 'system', name: 'System' }
+      await auditService.logEvent({
+        user_id: actor.id,
+        user_name: actor.name,
+        action: 'UPDATE',
+        resource_type: 'APPLICATION',
+        resource_id: applicationId,
+        changes: updateData,
+        metadata: { action: 'SELECT' }
+      })
+    } catch (e) {
+      console.warn('Audit logging (SELECT APPLICATION) failed:', e)
+    }
+    return res
   }
 
   /**
@@ -655,7 +767,8 @@ class ApplicationService {
       })
     } catch (error) {
       console.error('Error in getApplicationsPaginated:', error)
-      throw new Error('Failed to fetch applications')
+      // Preserve original error details so the UI can make better decisions
+      throw createError(error, 'getApplicationsPaginated')
     }
   }
 

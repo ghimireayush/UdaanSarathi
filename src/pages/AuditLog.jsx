@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { 
   History, 
   User, 
@@ -20,6 +20,7 @@ import { format } from 'date-fns'
 import { auditService } from '../services/index.js'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import Loading from '../components/Loading.jsx'
+import { InteractivePagination, PaginationInfo, ItemsPerPageSelector } from '../components/InteractiveUI'
 
 const AuditLogPage = () => {
   const { user } = useAuth()
@@ -37,6 +38,9 @@ const AuditLogPage = () => {
   })
   const [expandedLogs, setExpandedLogs] = useState(new Set())
   const [users, setUsers] = useState([])
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  const [search, setSearch] = useState('')
 
   // Fetch audit logs
   useEffect(() => {
@@ -45,6 +49,8 @@ const AuditLogPage = () => {
         setIsLoading(true)
         const logsResponse = await auditService.getAuditLogs(filters)
         setAuditLogs(logsResponse.logs)
+        setTotal(logsResponse.total)
+        setTotalPages(logsResponse.total_pages)
       } catch (err) {
         setError('Failed to load audit logs')
         console.error('Audit log fetch error:', err)
@@ -55,6 +61,61 @@ const AuditLogPage = () => {
 
     fetchAuditLogs()
   }, [filters])
+
+  // Prepare downloadable PDF with jsPDF + html2canvas via dynamic import
+  const logsContainerRef = useRef(null)
+  const exportPDF = async () => {
+    try {
+      const [{ jsPDF }, html2canvas] = await Promise.all([
+        import('https://esm.sh/jspdf@2.5.1'),
+        import('https://esm.sh/html2canvas@1.4.1')
+      ])
+      // Make html2canvas available for jsPDF.html
+      // @ts-ignore
+      window.html2canvas = html2canvas.default || html2canvas
+
+      const now = new Date()
+      // Build a lightweight container for export
+      const wrapper = document.createElement('div')
+      wrapper.style.width = '800px'
+      wrapper.style.padding = '24px'
+      wrapper.style.fontFamily = 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial'
+      wrapper.innerHTML = `
+        <h1 style="font-size:20px;margin:0 0 12px;">Audit Log</h1>
+        <div style="font-size:12px;color:#4B5563;margin-bottom:16px;">Exported: ${now.toLocaleString()} | Page ${filters.page} | Limit ${filters.limit}</div>
+        ${filteredLogs.map(l => `
+          <div style="border:1px solid #E5E7EB;border-radius:8px;margin:10px 0;page-break-inside:avoid;">
+            <div style="padding:10px 12px;background:#F9FAFB;display:flex;align-items:center;justify-content:space-between;">
+              <div style="font-weight:600;">${auditService.getActionLabel(l.action)} <span style="color:#6B7280;font-weight:400;">by ${l.user_name}</span></div>
+              <div style="display:inline-block;padding:2px 8px;border-radius:9999px;background:#EEF2FF;color:#3730A3;font-size:10px;">${auditService.getResourceLabel(l.resource_type)}</div>
+            </div>
+            <div style="padding:12px;font-size:12px;">
+              <div style="display:flex;gap:16px;color:#4B5563;"><div><strong>Timestamp:</strong> ${new Date(l.timestamp).toLocaleString()}</div><div><strong>User:</strong> ${l.user_id}</div></div>
+              ${l.changes && Object.keys(l.changes).length ? `<div style="margin-top:8px;"><strong>Changes:</strong> ${Object.keys(l.changes).length} field(s)</div>` : ''}
+              <div style="margin-top:8px;color:#6B7280;">Session: ${l.session_id || 'unknown_session'} | IP: ${l.ip_address || 'N/A'}</div>
+            </div>
+          </div>
+        `).join('')}
+      `
+      document.body.appendChild(wrapper)
+
+      const doc = new jsPDF({ unit: 'pt', format: 'a4' })
+      await doc.html(wrapper, {
+        margin: [24, 24, 24, 24],
+        autoPaging: 'text',
+        x: 0,
+        y: 0,
+        html2canvas: { scale: 0.72, useCORS: true },
+        callback: (doc) => {
+          const file = `audit_logs_page${filters.page}_limit${filters.limit}.pdf`
+          doc.save(file)
+          document.body.removeChild(wrapper)
+        }
+      })
+    } catch (e) {
+      console.error('PDF export failed', e)
+    }
+  }
 
   // Get icon for action type
   const getActionIcon = (action) => {
@@ -67,6 +128,33 @@ const AuditLogPage = () => {
       'LOGOUT': User
     }
     return icons[action] || Settings
+  }
+
+  const filteredLogs = useMemo(() => {
+    if (!search.trim()) return auditLogs
+    const q = search.toLowerCase()
+    return auditLogs.filter(log => {
+      return (
+        log.user_name?.toLowerCase().includes(q) ||
+        log.action?.toLowerCase().includes(q) ||
+        log.resource_type?.toLowerCase().includes(q) ||
+        auditService.getActionLabel(log.action)?.toLowerCase().includes(q) ||
+        auditService.getResourceLabel(log.resource_type)?.toLowerCase().includes(q)
+      )
+    })
+  }, [auditLogs, search])
+
+  const exportCSV = () => {
+    const headers = ['id','timestamp','user_id','user_name','action','resource_type','resource_id','ip_address','session_id']
+    const rows = filteredLogs.map(l => headers.map(h => JSON.stringify(l[h] ?? (h==='timestamp'? new Date(l.timestamp).toISOString(): ''))).join(','))
+    const csv = [headers.join(','), ...rows].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `audit_logs_page${filters.page}_limit${filters.limit}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   // Get color for action type
@@ -147,13 +235,24 @@ const AuditLogPage = () => {
           <History className="w-6 h-6 mr-2" />
           Audit Log
         </h1>
-        <button 
-          onClick={refreshLogs}
-          className="btn-secondary flex items-center"
-        >
-          <RefreshCw className="w-4 h-4 mr-1" />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search logs (user, action, resource)"
+            className="input w-64"
+          />
+          <button 
+            onClick={refreshLogs}
+            className="btn-secondary flex items-center"
+          >
+            <RefreshCw className="w-4 h-4 mr-1" />
+            Refresh
+          </button>
+          <button className="btn-outline" onClick={exportCSV}>Export CSV</button>
+          <button className="btn-outline" onClick={exportPDF}>Download PDF</button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -186,6 +285,8 @@ const AuditLogPage = () => {
               <option value="JOB_POSTING">Job Posting</option>
               <option value="CANDIDATE">Candidate</option>
               <option value="APPLICATION">Application</option>
+              <option value="USER">User</option>
+              <option value="AUTH">Auth</option>
             </select>
           </div>
           
@@ -227,8 +328,8 @@ const AuditLogPage = () => {
       )}
 
       {/* Audit Logs */}
-      <div className="card p-6">
-        {auditLogs.length === 0 ? (
+      <div className="card p-6" ref={logsContainerRef}>
+        {filteredLogs.length === 0 ? (
           <div className="text-center py-8">
             <History className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No audit logs found</h3>
@@ -236,7 +337,7 @@ const AuditLogPage = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            {auditLogs.map(log => {
+            {filteredLogs.map(log => {
               const ActionIcon = getActionIcon(log.action)
               const isExpanded = expandedLogs.has(log.id)
               const changes = formatChanges(log.changes)
@@ -261,6 +362,9 @@ const AuditLogPage = () => {
                             <span className="text-sm text-gray-500">
                               by {log.user_name}
                             </span>
+                            {log.metadata?.role && (
+                              <span className="chip chip-purple text-xs">{log.metadata.role}</span>
+                            )}
                           </div>
                           
                           <div className="flex items-center space-x-4 text-sm text-gray-600 mt-1">
@@ -349,8 +453,8 @@ const AuditLogPage = () => {
                             {log.metadata.file_size && (
                               <div>Size: {(log.metadata.file_size / 1024).toFixed(1)} KB</div>
                             )}
-                            {log.metadata.browser && (
-                              <div>Browser: {log.metadata.browser}</div>
+                            {(log.metadata.browser || log.user_agent) && (
+                              <div>Browser: {log.metadata.browser || log.user_agent}</div>
                             )}
                             {log.metadata.section && (
                               <div>Section: {log.metadata.section}</div>
@@ -367,6 +471,29 @@ const AuditLogPage = () => {
             })}
           </div>
         )}
+      </div>
+
+      {/* Footer controls: Pagination */}
+      <div className="mt-4 flex items-center justify-between">
+        <PaginationInfo
+          currentPage={filters.page}
+          totalPages={totalPages}
+          totalItems={total}
+          itemsPerPage={filters.limit}
+        />
+        <div className="flex items-center gap-4">
+          <ItemsPerPageSelector
+            value={filters.limit}
+            onChange={(val) => setFilters(prev => ({ ...prev, limit: val, page: 1 }))}
+            options={[10,20,50,100]}
+          />
+          <InteractivePagination
+            currentPage={filters.page}
+            totalPages={totalPages}
+            onPageChange={(p) => setFilters(prev => ({ ...prev, page: p }))}
+            size="sm"
+          />
+        </div>
       </div>
     </div>
   )

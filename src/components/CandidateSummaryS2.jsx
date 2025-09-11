@@ -16,7 +16,8 @@ import {
   MessageSquare,
   Paperclip,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Eye
 } from 'lucide-react'
 import { format } from 'date-fns'
 
@@ -354,6 +355,12 @@ const CandidateSummaryS2 = ({
                               </div>
                               <div className="flex items-center space-x-2">
                                 <button 
+                                  className="text-blue-600 hover:text-blue-800 p-1 rounded"
+                                  title="View document"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                                <button 
                                   className="text-primary-600 hover:text-primary-800 p-1 rounded"
                                   title="Download document"
                                 >
@@ -400,28 +407,53 @@ const CandidateSummaryS2 = ({
                 // Show simplified "Move to Next Stage" button for shortlisting
                 <div className="flex items-center space-x-3">
                   <span className="text-sm font-medium text-gray-700">Update Status:</span>
-                  {candidate.application?.stage === 'applied' ? (
-                    <button
-                      onClick={() => handleStatusUpdate('shortlisted')}
-                      disabled={isUpdating}
-                      className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {isUpdating ? 'Moving...' : 'Move to Next Stage (Shortlist)'}
-                    </button>
-                  ) : (
-                    <select
-                      value={candidate.application?.stage || ''}
-                      onChange={(e) => handleStatusUpdate(e.target.value)}
-                      disabled={isUpdating}
-                      className="text-sm border border-gray-300 rounded px-3 py-1 bg-white"
-                    >
-                      {workflowStages.map((stage) => (
-                        <option key={stage.id} value={stage.id}>
-                          {stage.label}
-                        </option>
-                      ))}
-                    </select>
-                  )}
+                  {(() => {
+                    // Define allowed transitions based on current stage (no reverse flow)
+                    const getAllowedStages = (currentStageId) => {
+                      switch (currentStageId) {
+                        case 'applied':
+                          return ['applied', 'shortlisted', 'interview-scheduled', 'interview-passed']
+                        case 'shortlisted':
+                          return ['shortlisted', 'interview-scheduled', 'interview-passed']
+                        case 'interview-scheduled':
+                          return ['interview-scheduled', 'interview-passed']
+                        case 'interview-passed':
+                          return ['interview-passed']
+                        default:
+                          return [currentStageId]
+                      }
+                    }
+
+                    const allowedStages = getAllowedStages(candidate.application?.stage)
+                    const availableStages = workflowStages.filter(stage => allowedStages.includes(stage.id))
+
+                    if (candidate.application?.stage === 'applied') {
+                      return (
+                        <button
+                          onClick={() => handleStatusUpdate('shortlisted')}
+                          disabled={isUpdating}
+                          className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {isUpdating ? 'Moving...' : 'Move to Next Stage (Shortlist)'}
+                        </button>
+                      )
+                    } else {
+                      return (
+                        <select
+                          value={candidate.application?.stage || ''}
+                          onChange={(e) => handleStatusUpdate(e.target.value)}
+                          disabled={isUpdating}
+                          className="text-sm border border-gray-300 rounded px-3 py-1 bg-white"
+                        >
+                          {availableStages.map((stage) => (
+                            <option key={stage.id} value={stage.id}>
+                              {stage.label}
+                            </option>
+                          ))}
+                        </select>
+                      )
+                    }
+                  })()}
                 </div>
               )}
               

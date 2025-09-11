@@ -4,8 +4,35 @@ import { format } from 'date-fns'
 // Utility function to simulate API delay
 const delay = (ms = 200) => new Promise(resolve => setTimeout(resolve, ms))
 
-// In-memory audit log storage (in production, this would be a database)
+// In-memory audit log storage (persisted to localStorage for demo)
 let auditLogs = []
+
+// Load persisted logs if available
+const STORAGE_KEY = 'udaan_audit_logs'
+const loadAuditLogs = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        auditLogs = parsed
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to load persisted audit logs:', e)
+  }
+}
+
+const saveAuditLogs = () => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(auditLogs))
+  } catch (e) {
+    console.warn('Failed to persist audit logs:', e)
+  }
+}
+
+// Initialize from storage on module load
+loadAuditLogs()
 
 class AuditService {
   /**
@@ -34,10 +61,13 @@ class AuditService {
     }
 
     auditLogs.push(auditEntry)
+    // Persist after mutation
+    saveAuditLogs()
     
     // Keep only last 1000 entries in memory (in production, use proper storage)
     if (auditLogs.length > 1000) {
       auditLogs = auditLogs.slice(-1000)
+      saveAuditLogs()
     }
 
     return auditEntry
@@ -320,7 +350,10 @@ class AuditService {
       'AGENCY_MEDIA': 'Agency Media',
       'JOB_POSTING': 'Job Posting',
       'CANDIDATE': 'Candidate',
-      'APPLICATION': 'Application'
+      'APPLICATION': 'Application',
+      'INTERVIEW': 'Interview',
+      'USER': 'User',
+      'AUTH': 'Authentication'
     }
     return labels[resourceType] || resourceType
   }

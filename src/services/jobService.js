@@ -3,6 +3,8 @@ import jobsData from '../data/jobs.json'
 import constantsService from './constantsService.js'
 import performanceService from './performanceService.js'
 import { handleServiceError } from '../utils/errorHandler.js'
+import auditService from './auditService.js'
+import authService from './authService.js'
 
 // Utility function to simulate API delay (reduced for performance)
 const delay = (ms = 50) => new Promise(resolve => setTimeout(resolve, ms))
@@ -144,6 +146,20 @@ class JobService {
       }
 
       jobsCache.push(newJob)
+      // Audit: job created
+      try {
+        const actor = authService.getCurrentUser() || { id: 'system', name: 'System' }
+        await auditService.logEvent({
+          user_id: actor.id,
+          user_name: actor.name,
+          action: 'CREATE',
+          resource_type: 'JOB_POSTING',
+          resource_id: newJob.id,
+          new_values: newJob
+        })
+      } catch (e) {
+        console.warn('Audit logging (CREATE JOB) failed:', e)
+      }
       return deepClone(newJob)
     }, 3, 500);
     
@@ -176,6 +192,21 @@ class JobService {
       }
 
       jobsCache.push(newDraft)
+      // Audit: draft job created
+      try {
+        const actor = authService.getCurrentUser() || { id: 'system', name: 'System' }
+        await auditService.logEvent({
+          user_id: actor.id,
+          user_name: actor.name,
+          action: 'CREATE',
+          resource_type: 'JOB_POSTING',
+          resource_id: newDraft.id,
+          new_values: newDraft,
+          metadata: { status: constants.DRAFT }
+        })
+      } catch (e) {
+        console.warn('Audit logging (CREATE DRAFT JOB) failed:', e)
+      }
       return deepClone(newDraft)
     }, 3, 500);
     
@@ -213,6 +244,21 @@ class JobService {
         createdDrafts.push(deepClone(newDraft))
       }
 
+      // Audit: bulk create drafts
+      try {
+        const actor = authService.getCurrentUser() || { id: 'system', name: 'System' }
+        await auditService.logEvent({
+          user_id: actor.id,
+          user_name: actor.name,
+          action: 'BULK_CREATE',
+          resource_type: 'JOB_POSTING',
+          resource_ids: createdDrafts.map(j => j.id),
+          new_values: createdDrafts,
+          metadata: { status: constants.DRAFT }
+        })
+      } catch (e) {
+        console.warn('Audit logging (BULK CREATE DRAFT JOBS) failed:', e)
+      }
       return createdDrafts
     }, 3, 500);
     
@@ -235,26 +281,34 @@ class JobService {
         return null
       }
 
+      const before = deepClone(jobsCache[jobIndex])
       jobsCache[jobIndex] = {
         ...jobsCache[jobIndex],
         ...updateData,
         updated_at: new Date().toISOString()
       }
 
-      return deepClone(jobsCache[jobIndex])
+      const updated = deepClone(jobsCache[jobIndex])
+      // Audit: job updated
+      try {
+        const actor = authService.getCurrentUser() || { id: 'system', name: 'System' }
+        await auditService.logEvent({
+          user_id: actor.id,
+          user_name: actor.name,
+          action: 'UPDATE',
+          resource_type: 'JOB_POSTING',
+          resource_id: jobId,
+          changes: updateData,
+          old_values: before,
+          new_values: updated
+        })
+      } catch (e) {
+        console.warn('Audit logging (UPDATE JOB) failed:', e)
+      }
+      return updated
     }, 3, 500);
     
     return result;
-  }
-
-  /**
-   * Update draft job
-   * @param {string} draftId - Draft ID
-   * @param {Object} updateData - Update data
-   * @returns {Promise<Object|null>} Updated draft or null if not found
-   */
-  async updateDraftJob(draftId, updateData) {
-    return this.updateJob(draftId, updateData)
   }
 
   /**
@@ -272,7 +326,22 @@ class JobService {
         return false
       }
 
+      const removed = deepClone(jobsCache[jobIndex])
       jobsCache.splice(jobIndex, 1)
+      // Audit: job deleted
+      try {
+        const actor = authService.getCurrentUser() || { id: 'system', name: 'System' }
+        await auditService.logEvent({
+          user_id: actor.id,
+          user_name: actor.name,
+          action: 'DELETE',
+          resource_type: 'JOB_POSTING',
+          resource_id: jobId,
+          old_values: removed
+        })
+      } catch (e) {
+        console.warn('Audit logging (DELETE JOB) failed:', e)
+      }
       return true
     }, 3, 500);
     
@@ -292,13 +361,29 @@ class JobService {
       }
 
       let success = true
+      const removed = []
       for (const jobId of jobIds) {
         const jobIndex = jobsCache.findIndex(job => job.id === jobId)
         if (jobIndex === -1) {
           success = false
         } else {
+          removed.push(deepClone(jobsCache[jobIndex]))
           jobsCache.splice(jobIndex, 1)
         }
+      }
+      // Audit: bulk delete jobs
+      try {
+        const actor = authService.getCurrentUser() || { id: 'system', name: 'System' }
+        await auditService.logEvent({
+          user_id: actor.id,
+          user_name: actor.name,
+          action: 'BULK_DELETE',
+          resource_type: 'JOB_POSTING',
+          resource_ids: jobIds,
+          old_values: removed
+        })
+      } catch (e) {
+        console.warn('Audit logging (BULK DELETE JOBS) failed:', e)
       }
       return success
     }, 3, 500);
@@ -316,10 +401,26 @@ class JobService {
       await delay(80)
       const constants = await constantsService.getJobStatuses()
       
-      return this.updateJob(jobId, {
+      const updateData = {
         status: constants.PUBLISHED,
         published_at: new Date().toISOString()
-      })
+      }
+      const res = await this.updateJob(jobId, updateData)
+      try {
+        const actor = authService.getCurrentUser() || { id: 'system', name: 'System' }
+        await auditService.logEvent({
+          user_id: actor.id,
+          user_name: actor.name,
+          action: 'UPDATE',
+          resource_type: 'JOB_POSTING',
+          resource_id: jobId,
+          changes: updateData,
+          metadata: { action: 'PUBLISH' }
+        })
+      } catch (e) {
+        console.warn('Audit logging (PUBLISH JOB) failed:', e)
+      }
+      return res
     }, 3, 500);
     
     return result;
@@ -335,9 +436,23 @@ class JobService {
       await delay(300)
       const constants = await constantsService.getJobStatuses()
       
-      return this.updateJob(jobId, {
-        status: constants.PAUSED
-      })
+      const updateData = { status: constants.PAUSED }
+      const res = await this.updateJob(jobId, updateData)
+      try {
+        const actor = authService.getCurrentUser() || { id: 'system', name: 'System' }
+        await auditService.logEvent({
+          user_id: actor.id,
+          user_name: actor.name,
+          action: 'UPDATE',
+          resource_type: 'JOB_POSTING',
+          resource_id: jobId,
+          changes: updateData,
+          metadata: { action: 'PAUSE' }
+        })
+      } catch (e) {
+        console.warn('Audit logging (PAUSE JOB) failed:', e)
+      }
+      return res
     }, 3, 500);
     
     return result;
@@ -353,9 +468,23 @@ class JobService {
       await delay(300)
       const constants = await constantsService.getJobStatuses()
       
-      return this.updateJob(jobId, {
-        status: constants.CLOSED
-      })
+      const updateData = { status: constants.CLOSED }
+      const res = await this.updateJob(jobId, updateData)
+      try {
+        const actor = authService.getCurrentUser() || { id: 'system', name: 'System' }
+        await auditService.logEvent({
+          user_id: actor.id,
+          user_name: actor.name,
+          action: 'UPDATE',
+          resource_type: 'JOB_POSTING',
+          resource_id: jobId,
+          changes: updateData,
+          metadata: { action: 'CLOSE' }
+        })
+      } catch (e) {
+        console.warn('Audit logging (CLOSE JOB) failed:', e)
+      }
+      return res
     }, 3, 500);
     
     return result;

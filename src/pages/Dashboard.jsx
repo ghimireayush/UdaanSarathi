@@ -83,11 +83,7 @@ const Dashboard = () => {
           applied: applicationsData.byStage?.applied || 3,
           shortlisted: applicationsData.byStage?.shortlisted || 0,
           'interview-scheduled': applicationsData.byStage?.['interview-scheduled'] || 0,
-          'interview-passed': applicationsData.byStage?.['interview-passed'] || 0,
-          'medical-scheduled': applicationsData.byStage?.['medical-scheduled'] || 0,
-          'medical-passed': applicationsData.byStage?.['medical-passed'] || 0,
-          'visa-application': applicationsData.byStage?.['visa-application'] || 0,
-          'visa-approved': applicationsData.byStage?.['visa-approved'] || 0
+          'interview-passed': applicationsData.byStage?.['interview-passed'] || 0
         }
       }
       
@@ -304,11 +300,11 @@ const Dashboard = () => {
             </div>
             
             {/* Right Side - Controls */}
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0 w-full lg:w-auto">
               <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                 <h3 className="text-sm font-semibold text-gray-700 mb-3">Filters & Controls</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-3">
-                  <div className="space-y-3">
+                <div className="flex flex-col lg:flex-row gap-3">
+                  <div className="flex flex-col sm:flex-row gap-3 flex-1">
                     <InteractiveDropdown
                       options={[
                         { value: 'Today', label: 'Today' },
@@ -320,7 +316,7 @@ const Dashboard = () => {
                       onChange={(value) => setFilters(prev => ({ ...prev, timeWindow: value }))}
                       placeholder="Time Window"
                       size="md"
-                      className="w-full"
+                      className="w-full min-w-[150px]"
                     />
                     
                     <InteractiveDropdown
@@ -336,11 +332,11 @@ const Dashboard = () => {
                       placeholder="Filter by Job"
                       searchable={true}
                       size="md"
-                      className="w-full"
+                      className="w-full min-w-[200px]"
                     />
                   </div>
                   
-                  <div className="space-y-3">
+                  <div className="flex flex-col sm:flex-row gap-3 flex-1">
                     <InteractiveDropdown
                       options={[
                         { value: 'All Countries', label: 'All Countries' },
@@ -350,16 +346,16 @@ const Dashboard = () => {
                       onChange={(value) => setFilters(prev => ({ ...prev, country: value }))}
                       placeholder="Filter by Country"
                       size="md"
-                      className="w-full"
+                      className="w-full min-w-[150px]"
                     />
                     
                     <InteractiveButton
                       onClick={handleRefresh}
                       variant="outline"
-                      size="md"
+                      size="sm"
                       loading={isRefreshing}
                       icon={RefreshCw}
-                      className="w-full"
+                      className="w-full sm:w-auto px-3 py-1 text-sm"
                     >
                       {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
                     </InteractiveButton>

@@ -1,5 +1,6 @@
 // Authentication and Authorization Service
 import { delay } from '../utils/helpers.js'
+import auditService from './auditService.js'
 
 // Role definitions with permissions
 export const ROLES = {
@@ -210,7 +211,24 @@ class AuthService {
     
     this.currentUser = user
     this.isAuthenticated = true
-    
+
+    // Audit: login event (track all users including admin)
+    try {
+      await auditService.logEvent({
+        user_id: user.id,
+        user_name: user.name,
+        action: 'LOGIN',
+        resource_type: 'AUTH',
+        resource_id: user.id,
+        metadata: {
+          role: user.role
+        }
+      })
+    } catch (e) {
+      // Non-blocking audit; ignore logging failures
+      console.warn('Audit logging (LOGIN) failed:', e)
+    }
+
     return {
       user,
       token,
@@ -222,10 +240,29 @@ class AuthService {
    * Logout user
    */
   logout() {
+    // Snapshot current user for audit before clearing
+    const prevUser = this.currentUser
+
     localStorage.removeItem('udaan_user')
     localStorage.removeItem('udaan_token')
     this.currentUser = null
     this.isAuthenticated = false
+
+    // Fire-and-forget audit for logout (do not block UI)
+    if (prevUser) {
+      Promise.resolve(
+        auditService.logEvent({
+          user_id: prevUser.id,
+          user_name: prevUser.name,
+          action: 'LOGOUT',
+          resource_type: 'AUTH',
+          resource_id: prevUser.id,
+          metadata: {
+            role: prevUser.role
+          }
+        })
+      ).catch(e => console.warn('Audit logging (LOGOUT) failed:', e))
+    }
   }
 
   /**
@@ -358,6 +395,23 @@ class AuthService {
     }
     
     MOCK_USERS.push(newUser)
+
+    // Audit: admin created user
+    try {
+      const actor = this.currentUser || { id: 'system', name: 'System' }
+      await auditService.logEvent({
+        user_id: actor.id,
+        user_name: actor.name,
+        action: 'CREATE',
+        resource_type: 'USER',
+        resource_id: newUser.id,
+        changes: { created: true },
+        new_values: newUser
+      })
+    } catch (e) {
+      console.warn('Audit logging (CREATE USER) failed:', e)
+    }
+
     return newUser
   }
 
@@ -379,13 +433,32 @@ class AuthService {
       throw new Error('User not found')
     }
     
+    const before = { ...MOCK_USERS[userIndex] }
     MOCK_USERS[userIndex] = {
       ...MOCK_USERS[userIndex],
       ...updateData,
       updatedAt: new Date().toISOString()
     }
-    
-    return MOCK_USERS[userIndex]
+    const updated = MOCK_USERS[userIndex]
+
+    // Audit: admin updated user
+    try {
+      const actor = this.currentUser || { id: 'system', name: 'System' }
+      await auditService.logEvent({
+        user_id: actor.id,
+        user_name: actor.name,
+        action: 'UPDATE',
+        resource_type: 'USER',
+        resource_id: userId,
+        changes: updateData,
+        old_values: before,
+        new_values: updated
+      })
+    } catch (e) {
+      console.warn('Audit logging (UPDATE USER) failed:', e)
+    }
+
+    return updated
   }
 
   /**
@@ -404,8 +477,25 @@ class AuthService {
     if (userIndex === -1) {
       throw new Error('User not found')
     }
-    
+
+    const removed = MOCK_USERS[userIndex]
     MOCK_USERS.splice(userIndex, 1)
+
+    // Audit: admin deleted user
+    try {
+      const actor = this.currentUser || { id: 'system', name: 'System' }
+      await auditService.logEvent({
+        user_id: actor.id,
+        user_name: actor.name,
+        action: 'DELETE',
+        resource_type: 'USER',
+        resource_id: userId,
+        old_values: removed
+      })
+    } catch (e) {
+      console.warn('Audit logging (DELETE USER) failed:', e)
+    }
+
     return true
   }
 
