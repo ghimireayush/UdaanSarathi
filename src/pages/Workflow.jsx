@@ -384,8 +384,8 @@ const Workflow = () => {
             <button
               onClick={() => setSelectedJobFilter('all')}
               className={`px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${selectedJobFilter === 'all'
-                  ? 'bg-primary-100 text-primary-700 border-primary-300'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                ? 'bg-primary-100 text-primary-700 border-primary-300'
+                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                 }`}
             >
               All ({Object.values(candidatesByJob).reduce((sum, candidates) => sum + candidates.length, 0)})
@@ -395,8 +395,8 @@ const Workflow = () => {
                 key={jobTitle}
                 onClick={() => setSelectedJobFilter(jobTitle)}
                 className={`px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${selectedJobFilter === jobTitle
-                    ? 'bg-primary-100 text-primary-700 border-primary-300'
-                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  ? 'bg-primary-100 text-primary-700 border-primary-300'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                   }`}
               >
                 {jobTitle} ({jobCandidates.length})
