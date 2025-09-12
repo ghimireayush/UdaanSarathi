@@ -1,0 +1,266 @@
+/* Import accessibility styles */
+@import './styles/accessibility.css';
+/* Import interactive UI styles */
+@import './styles/interactive.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Skip to content link - handled by Tailwind classes in Layout component */
+
+/* Mobile navigation backdrop */
+.mobile-nav-backdrop {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+/* Touch target sizing for better mobile accessibility */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Custom styles for Udaan Sarathi */
+@layer base {
+  :root {
+    --color-primary-50: #eff6ff;
+    --color-primary-100: #dbeafe;
+    --color-primary-200: #bfdbfe;
+    --color-primary-300: #93c5fd;
+    --color-primary-400: #60a5fa;
+    --color-primary-500: #3b82f6;
+    --color-primary-600: #2563eb;
+    --color-primary-700: #1d4ed8;
+    --color-primary-800: #1e40af;
+    --color-primary-900: #1e3a8a;
+  }
+  
+  body {
+    @apply bg-gray-50 text-gray-900;
+  }
+  
+  /* Ensure proper focus visibility for accessibility */
+  *:focus {
+    @apply outline-none;
+  }
+  
+  *:focus-visible {
+    @apply ring-2 ring-primary-500 ring-offset-2;
+  }
+  
+  /* Improve text readability */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold leading-tight;
+  }
+  
+  p {
+    @apply leading-relaxed;
+  }
+  
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    .card {
+      @apply border-2 border-gray-800;
+    }
+  }
+  
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-lg shadow-md border border-gray-200 transition-all duration-200;
+  }
+  
+  .card:hover {
+    @apply shadow-lg;
+  }
+  
+  /* Responsive card padding */
+  .card-responsive {
+    @apply p-3 sm:p-4 md:p-6;
+  }
+  
+  .btn-primary {
+    @apply bg-primary-600 hover:bg-primary-700 focus:bg-primary-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-200 hover:bg-gray-300 focus:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-danger {
+    @apply bg-red-600 hover:bg-red-700 focus:bg-red-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  /* Responsive button sizes */
+  .btn-sm {
+    @apply py-1 px-3 text-sm;
+  }
+  
+  .btn-lg {
+    @apply py-3 px-6 text-lg;
+  }
+  
+  /* Mobile-friendly buttons */
+  .btn-mobile {
+    @apply w-full sm:w-auto min-h-[44px] touch-manipulation;
+  }
+  
+  .chip {
+    @apply inline-flex items-center px-2 py-1 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm font-medium;
+  }
+  
+  .chip-blue {
+    @apply bg-blue-100 text-blue-800;
+  }
+  
+  .chip-green {
+    @apply bg-green-100 text-green-800;
+  }
+  
+  .chip-yellow {
+    @apply bg-yellow-100 text-yellow-800;
+  }
+  
+  .chip-red {
+    @apply bg-red-100 text-red-800;
+  }
+  
+  .chip-primary {
+    @apply bg-primary-100 text-primary-800;
+  }
+  
+  .chip-gray {
+    @apply bg-gray-100 text-gray-800;
+  }
+  
+  .chip-purple {
+    @apply bg-purple-100 text-purple-800;
+  }
+  
+  .chip-indigo {
+    @apply bg-indigo-100 text-indigo-800;
+  }
+  
+  .chip-orange {
+    @apply bg-orange-100 text-orange-800;
+  }
+  
+  /* Responsive form elements */
+  .form-input {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors disabled:bg-gray-50 disabled:text-gray-500;
+  }
+  
+  .form-select {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white transition-colors;
+  }
+  
+  .form-textarea {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-y min-h-[80px] transition-colors;
+  }
+  
+  /* Screen reader only content */
+  .sr-only {
+    @apply absolute w-px h-px p-0 -m-px overflow-hidden whitespace-nowrap border-0;
+  }
+  
+  /* Skip to content link for accessibility */
+  .skip-to-content {
+    @apply absolute left-0 top-0 bg-primary-600 text-white px-4 py-2 rounded-br-md transform -translate-y-full focus:translate-y-0 transition-transform z-50;
+  }
+  
+  /* Responsive grid layouts */
+  .grid-responsive {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6;
+  }
+  
+  .grid-responsive-2 {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6;
+  }
+  
+  .grid-responsive-3 {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6;
+  }
+  
+  /* Responsive text sizes */
+  .text-responsive-xs {
+    @apply text-xs sm:text-sm;
+  }
+  
+  .text-responsive-sm {
+    @apply text-sm sm:text-base;
+  }
+  
+  .text-responsive-base {
+    @apply text-base sm:text-lg;
+  }
+  
+  .text-responsive-lg {
+    @apply text-lg sm:text-xl;
+  }
+  
+  .text-responsive-xl {
+    @apply text-xl sm:text-2xl;
+  }
+  
+  /* Mobile navigation */
+  .mobile-nav-open {
+    @apply fixed inset-0 z-50 bg-white overflow-y-auto;
+  }
+  
+  .mobile-nav-backdrop {
+    @apply fixed inset-0 bg-black bg-opacity-50 z-40;
+  }
+  
+  /* Table responsiveness */
+  .table-responsive {
+    @apply overflow-x-auto;
+  }
+  
+  .table-responsive table {
+    @apply min-w-full;
+  }
+  
+  /* Loading states */
+  .loading-skeleton {
+    @apply animate-pulse bg-gray-200 rounded;
+  }
+  
+  /* Touch targets for mobile */
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px] flex items-center justify-center;
+  }
+  
+  /* High contrast mode adjustments */
+  @media (prefers-contrast: high) {
+    .btn-primary {
+      @apply border-2 border-black;
+    }
+    
+    .card {
+      @apply border-2 border-gray-800;
+    }
+  }
+  
+  /* Dark mode support */
+  @media (prefers-color-scheme: dark) {
+    .card {
+      @apply bg-gray-800 border-gray-700 text-white;
+    }
+    
+    body {
+      @apply bg-gray-900 text-gray-100;
+    }
+  }
+}

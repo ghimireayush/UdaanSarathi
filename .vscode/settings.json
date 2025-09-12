@@ -1,2 +1,15 @@
 {
+    "javascript.autoClosingTags": false,
+    "files.associations": {
+        "bun.lock": "jsonc"
+    },
+    "json.schemas": [
+        {
+            "fileMatch": [
+                "/package.json",
+                "package.json"
+            ],
+            "url": "https://json.schemastore.org/package.json"
+        }
+    ]
 }

@@ -1,0 +1,194 @@
+{
+  "stages": [
+    {
+      "id": "interviewed",
+      "name": "Interviewed",
+      "description": "Candidates who have completed interviews",
+      "order": 1,
+      "color": "blue"
+    },
+    {
+      "id": "selected",
+      "name": "Selected",
+      "description": "Candidates selected for positions",
+      "order": 2,
+      "color": "green"
+    },
+    {
+      "id": "document_verification",
+      "name": "Document Verification",
+      "description": "Verifying candidate documents",
+      "order": 3,
+      "color": "yellow"
+    },
+    {
+      "id": "medical_test",
+      "name": "Medical Test",
+      "description": "Medical examination pending/completed",
+      "order": 4,
+      "color": "purple"
+    },
+    {
+      "id": "visa_processing",
+      "name": "Visa Processing",
+      "description": "Work visa application in progress",
+      "order": 5,
+      "color": "orange"
+    },
+    {
+      "id": "deployment",
+      "name": "Deployment",
+      "description": "Ready for travel/deployed",
+      "order": 6,
+      "color": "teal"
+    },
+    {
+      "id": "rejected",
+      "name": "Rejected",
+      "description": "Candidates not selected",
+      "order": 7,
+      "color": "red"
+    }
+  ],
+  "workflows": [
+    {
+      "id": "workflow_001",
+      "candidate_id": "candidate_005",
+      "job_id": "job_004",
+      "application_id": "app_candidate_005",
+      "current_stage": "selected",
+      "status": "active",
+      "created_at": "2025-09-01T17:00:00.000Z",
+      "updated_at": "2025-09-01T17:00:00.000Z",
+      "expected_completion": "2025-10-15T00:00:00.000Z",
+      "progress": 25,
+      "timeline": [
+        {
+          "stage": "interviewed",
+          "completed_at": "2025-09-01T17:00:00.000Z",
+          "status": "completed",
+          "notes": "Interview passed successfully"
+        },
+        {
+          "stage": "selected",
+          "completed_at": "2025-09-01T17:00:00.000Z",
+          "status": "completed",
+          "notes": "Selected for Security Guard position"
+        },
+        {
+          "stage": "document_verification",
+          "completed_at": null,
+          "status": "pending",
+          "notes": "Waiting for passport and certificates verification"
+        }
+      ],
+      "documents_required": [
+        {
+          "name": "Passport Copy",
+          "status": "received",
+          "received_at": "2025-09-01T18:00:00.000Z"
+        },
+        {
+          "name": "Educational Certificates",
+          "status": "pending",
+          "received_at": null
+        },
+        {
+          "name": "Experience Letters",
+          "status": "received",
+          "received_at": "2025-09-01T18:00:00.000Z"
+        },
+        {
+          "name": "Medical Certificate",
+          "status": "pending",
+          "received_at": null
+        }
+      ],
+      "assigned_to": "Sunita Shrestha",
+      "priority": "high",
+      "estimated_deployment": "2025-10-15T00:00:00.000Z"
+    }
+  ],
+  "pipeline_metrics": {
+    "total_in_pipeline": 1,
+    "by_stage": {
+      "interviewed": 0,
+      "selected": 1,
+      "document_verification": 0,
+      "medical_test": 0,
+      "visa_processing": 0,
+      "deployment": 0,
+      "rejected": 0
+    },
+    "average_processing_time": {
+      "document_verification": 5,
+      "medical_test": 7,
+      "visa_processing": 21,
+      "deployment": 30
+    },
+    "success_rate": {
+      "overall": 85,
+      "by_country": {
+        "UAE": 90,
+        "Saudi Arabia": 85,
+        "Qatar": 88,
+        "Kuwait": 82
+      }
+    }
+  },
+  "deployment_schedule": [
+    {
+      "id": "deployment_001",
+      "candidate_id": "candidate_005",
+      "job_id": "job_004",
+      "expected_date": "2025-10-15T00:00:00.000Z",
+      "flight_details": null,
+      "status": "scheduled",
+      "employer_contact": {
+        "name": "Abdullah Al Rashid",
+        "company": "SecureMax",
+        "phone": "+966-123456789",
+        "email": "abdullah.rashid@securemax.com"
+      }
+    }
+  ],
+  "document_checklist": {
+    "mandatory": [
+      "Passport (valid for 2+ years)",
+      "Educational Certificates",
+      "Experience Letters",
+      "Medical Certificate",
+      "Police Clearance Certificate",
+      "Birth Certificate",
+      "Marriage Certificate (if married)"
+    ],
+    "optional": [
+      "Skill Certificates",
+      "Training Certificates",
+      "Reference Letters",
+      "Insurance Documents"
+    ]
+  },
+  "processing_times": {
+    "document_verification": {
+      "min_days": 3,
+      "max_days": 7,
+      "average_days": 5
+    },
+    "medical_test": {
+      "min_days": 5,
+      "max_days": 10,
+      "average_days": 7
+    },
+    "visa_processing": {
+      "min_days": 15,
+      "max_days": 30,
+      "average_days": 21
+    },
+    "total_pipeline": {
+      "min_days": 25,
+      "max_days": 60,
+      "average_days": 35
+    }
+  }
+}

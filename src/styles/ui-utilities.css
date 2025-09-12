@@ -1,0 +1,175 @@
+/* UI Utilities for Glass-morphism and Gradient Effects */
+
+/* Glass-morphism effects */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.glass-effect-strong {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.glass-effect-subtle {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Gradient text effects */
+.gradient-text-brand {
+  background: linear-gradient(90deg, #1e3a8a, #0ea5e9);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-success {
+  background: linear-gradient(90deg, #84cc16, #16a34a);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-warning {
+  background: linear-gradient(90deg, #f59e0b, #ea580c);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Gradient backgrounds */
+.gradient-bg-brand {
+  background: linear-gradient(90deg, #1e3a8a, #0ea5e9);
+}
+
+.gradient-bg-success {
+  background: linear-gradient(90deg, #84cc16, #16a34a);
+}
+
+.gradient-bg-warning {
+  background: linear-gradient(90deg, #f59e0b, #ea580c);
+}
+
+/* Hover and focus effects */
+.hover-scale {
+  transition: transform 0.3s ease;
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+.hover-lift {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* Focus rings */
+.focus-ring-brand {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  transition: outline 0.2s ease;
+}
+
+.focus-ring-brand:focus {
+  outline: 2px solid #0ea5e9;
+  outline-offset: 2px;
+}
+
+.focus-ring-success:focus {
+  outline: 2px solid #84cc16;
+  outline-offset: 2px;
+}
+
+/* Shadow utilities */
+.shadow-soft {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.shadow-soft-lg {
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.05);
+}
+
+.shadow-soft-xl {
+  box-shadow: 0 20px 25px rgba(0, 0, 0, 0.05);
+}
+
+/* Border utilities */
+.border-subtle {
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.border-brand {
+  border: 1px solid rgba(30, 58, 138, 0.2);
+}
+
+.border-success {
+  border: 1px solid rgba(132, 204, 22, 0.2);
+}
+
+/* Animation utilities */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Touch target utilities for mobile */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Responsive utilities */
+@media (max-width: 768px) {
+  .glass-effect,
+  .glass-effect-strong,
+  .glass-effect-subtle {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+  }
+  
+  /* Adjust glass effect for better mobile performance */
+  .glass-effect {
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+  }
+  
+  .glass-effect-strong {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+}

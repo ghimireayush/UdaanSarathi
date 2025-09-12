@@ -1,0 +1,172 @@
+{
+  "jobs": {
+    "total": 6,
+    "open": 5,
+    "recent": 6,
+    "drafts": 1,
+    "closed": 0,
+    "paused": 0,
+    "byCountry": {
+      "UAE": 4,
+      "Qatar": 1,
+      "Saudi Arabia": 1
+    },
+    "byCategory": {
+      "Cook": 1,
+      "Driver": 1, 
+      "Cleaner": 1,
+      "Security Guard": 1,
+      "Waiter": 1,
+      "Construction Worker": 1
+    },
+    "monthlyTrend": [
+      { "month": "Jan", "jobs": 8 },
+      { "month": "Feb", "jobs": 12 },
+      { "month": "Mar", "jobs": 15 },
+      { "month": "Apr", "jobs": 18 },
+      { "month": "May", "jobs": 22 },
+      { "month": "Jun", "jobs": 25 },
+      { "month": "Jul", "jobs": 28 },
+      { "month": "Aug", "jobs": 30 }
+    ]
+  },
+  "applications": {
+    "total": 5,
+    "applicants": 5,
+    "jobsApplied": 4,
+    "shortlisted": 2,
+    "selected": 0,
+    "rejected": 0,
+    "pending": 3,
+    "byStage": {
+      "applied": 3,
+      "shortlisted": 1,
+      "scheduled": 1,
+      "interviewed": 0,
+      "selected": 0,
+      "rejected": 0
+    },
+    "conversionRate": {
+      "applicationToShortlist": 40,
+      "shortlistToInterview": 100,
+      "interviewToHire": 0
+    },
+    "averageProcessingTime": {
+      "applicationToShortlist": 2.5,
+      "shortlistToInterview": 1.5,
+      "interviewToDecision": 1.0
+    },
+    "monthlyTrend": [
+      { "month": "Jan", "applications": 45 },
+      { "month": "Feb", "applications": 52 },
+      { "month": "Mar", "applications": 68 },
+      { "month": "Apr", "applications": 74 },
+      { "month": "May", "applications": 89 },
+      { "month": "Jun", "applications": 95 },
+      { "month": "Jul", "applications": 108 },
+      { "month": "Aug", "applications": 120 }
+    ]
+  },
+  "interviews": {
+    "weeklyPending": 4,
+    "weeklyTotal": 5,
+    "todayCompleted": 0,
+    "todayTotal": 0,
+    "monthlyInterviewed": 1,
+    "monthlyPass": 1,
+    "monthlyFail": 0,
+    "upcomingThisWeek": 4,
+    "completionRate": 80,
+    "averageDuration": 31,
+    "byType": {
+      "In-person": 3,
+      "Online": 1,
+      "Phone": 1
+    },
+    "byStatus": {
+      "scheduled": 4,
+      "completed": 1,
+      "cancelled": 0,
+      "no_show": 0
+    },
+    "successRate": 100,
+    "monthlyTrend": [
+      { "month": "Jan", "interviews": 18 },
+      { "month": "Feb", "interviews": 22 },
+      { "month": "Mar", "interviews": 28 },
+      { "month": "Apr", "interviews": 35 },
+      { "month": "May", "interviews": 42 },
+      { "month": "Jun", "interviews": 48 },
+      { "month": "Jul", "interviews": 55 },
+      { "month": "Aug", "interviews": 62 }
+    ]
+  },
+  "candidates": {
+    "total": 5,
+    "active": 5,
+    "hired": 0,
+    "rejected": 0,
+    "averageScore": 82.2,
+    "byExperience": {
+      "0-1 years": 1,
+      "1-3 years": 2,
+      "3-5 years": 2,
+      "5+ years": 0
+    },
+    "byEducation": {
+      "SLC Passed": 1,
+      "+2 Passed": 3,
+      "Bachelor Degree": 1,
+      "Master Degree": 0
+    },
+    "byGender": {
+      "Male": 3,
+      "Female": 2
+    },
+    "topSkills": [
+      { "skill": "English", "count": 4 },
+      { "skill": "Cleaning", "count": 2 },
+      { "skill": "Driving", "count": 1 },
+      { "skill": "Cooking", "count": 1 },
+      { "skill": "Security", "count": 1 }
+    ]
+  },
+  "agency": {
+    "totalPlacements": 156,
+    "monthlyTarget": 25,
+    "monthlyAchieved": 18,
+    "successRate": 72,
+    "averageProcessingTime": 14,
+    "clientSatisfaction": 4.6,
+    "activeRecruiters": 8,
+    "partnerCompanies": 45
+  },
+  "performance": {
+    "topPerformingJobs": [
+      {
+        "job_id": "job_006",
+        "title": "Construction Worker",
+        "applications": 156,
+        "conversion_rate": 28.8
+      },
+      {
+        "job_id": "job_003",
+        "title": "Cleaner", 
+        "applications": 89,
+        "conversion_rate": 28.1
+      }
+    ],
+    "topPerformingRecruiters": [
+      {
+        "name": "Ahmed Al Mansouri",
+        "placements": 12,
+        "success_rate": 85
+      },
+      {
+        "name": "Sarah Johnson",
+        "placements": 10,
+        "success_rate": 78
+      }
+    ]
+  }
+}
