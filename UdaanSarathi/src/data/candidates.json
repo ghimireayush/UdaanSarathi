@@ -1,0 +1,474 @@
+[
+  {
+    "id": "candidate_001",
+    "name": "Ram Bahadur Thapa",
+    "phone": "+977-9841234567",
+    "email": "ram.thapa@email.com",
+    "age": 28,
+    "gender": "Male",
+    "address": "Kathmandu, Nepal",
+    "experience": "3 years",
+    "skills": [
+      "Cooking",
+      "Indian Cuisine",
+      "Fast Food",
+      "English"
+    ],
+    "education": "SLC Passed",
+    "passport_number": "A1234567",
+    "applied_jobs": [
+      "job_001"
+    ],
+    "stage": "applied",
+    "priority_score": 85,
+    "applied_at": "2025-08-25T10:30:00.000Z",
+    "shortlisted_at": null,
+    "cv_url": "/docs/ram_thapa_cv.pdf",
+    "photo_url": "/photos/ram_thapa.jpg",
+    "date_of_birth": "1996-05-15",
+    "marital_status": "Single",
+    "religion": "Hindu",
+    "nationality": "Nepali",
+    "emergency_contact": {
+      "name": "Sita Thapa",
+      "relation": "Wife",
+      "phone": "+977-9841234568"
+    },
+    "medical_status": "Fit",
+    "previous_experience": [
+      {
+        "company": "Mountain View Restaurant",
+        "position": "Assistant Cook",
+        "duration": "2 years",
+        "location": "Kathmandu, Nepal"
+      }
+    ],
+    "salary_expectation": "1200 AED",
+    "availability": "Immediate"
+  },
+  {
+    "id": "candidate_002",
+    "name": "Sita Kumari Shrestha",
+    "phone": "+977-9876543210",
+    "email": "sita.shrestha@email.com",
+    "age": 25,
+    "gender": "Female",
+    "address": "Pokhara, Nepal",
+    "experience": "2 years",
+    "skills": [
+      "Cleaning",
+      "Office Management",
+      "English",
+      "Hindi"
+    ],
+    "education": "+2 Passed",
+    "passport_number": "B7654321",
+    "applied_jobs": [
+      "job_003"
+    ],
+    "stage": "shortlisted",
+    "priority_score": 78,
+    "applied_at": "2025-08-23T10:30:00.000Z",
+    "shortlisted_at": "2025-08-26T10:30:00.000Z",
+    "cv_url": "/docs/sita_shrestha_cv.pdf",
+    "photo_url": "/photos/sita_shrestha.jpg",
+    "date_of_birth": "1999-03-20",
+    "marital_status": "Single",
+    "religion": "Hindu",
+    "nationality": "Nepali",
+    "emergency_contact": {
+      "name": "Gopal Shrestha",
+      "relation": "Father",
+      "phone": "+977-9876543211"
+    },
+    "medical_status": "Fit",
+    "previous_experience": [
+      {
+        "company": "Clean Master Services",
+        "position": "Cleaner",
+        "duration": "1.5 years",
+        "location": "Pokhara, Nepal"
+      }
+    ],
+    "salary_expectation": "900 QAR",
+    "availability": "Within 1 month"
+  },
+  {
+    "id": "candidate_003",
+    "name": "Arjun Singh Thakuri",
+    "phone": "+977-9812345678",
+    "email": "arjun.thakuri@email.com",
+    "age": 32,
+    "gender": "Male",
+    "address": "Chitwan, Nepal",
+    "experience": "5 years",
+    "skills": [
+      "Driving",
+      "Heavy Vehicle",
+      "English",
+      "Arabic"
+    ],
+    "education": "Bachelor Degree",
+    "passport_number": "C9876543",
+    "applied_jobs": [
+      "job_002"
+    ],
+    "stage": "scheduled",
+    "priority_score": 92,
+    "applied_at": "2025-08-21T10:30:00.000Z",
+    "shortlisted_at": "2025-08-24T10:30:00.000Z",
+    "cv_url": "/docs/arjun_thakuri_cv.pdf",
+    "photo_url": "/photos/arjun_thakuri.jpg",
+    "date_of_birth": "1992-11-08",
+    "marital_status": "Married",
+    "religion": "Hindu",
+    "nationality": "Nepali",
+    "emergency_contact": {
+      "name": "Sunita Thakuri",
+      "relation": "Wife",
+      "phone": "+977-9812345679"
+    },
+    "medical_status": "Fit",
+    "previous_experience": [
+      {
+        "company": "Nepal Transport Service",
+        "position": "Heavy Vehicle Driver",
+        "duration": "3 years",
+        "location": "Chitwan, Nepal"
+      },
+      {
+        "company": "Mountain Logistics",
+        "position": "Truck Driver",
+        "duration": "2 years",
+        "location": "Kathmandu, Nepal"
+      }
+    ],
+    "licenses": [
+      {
+        "type": "Heavy Vehicle License",
+        "number": "HV123456",
+        "expiry": "2027-12-31"
+      }
+    ],
+    "salary_expectation": "1500 AED",
+    "availability": "Immediate"
+  },
+  {
+    "id": "candidate_004",
+    "name": "Maya Devi Gurung",
+    "phone": "+977-9823456789",
+    "email": "maya.gurung@email.com",
+    "age": 30,
+    "gender": "Female",
+    "address": "Gorkha, Nepal",
+    "experience": "4 years",
+    "skills": [
+      "Housekeeping",
+      "Cleaning",
+      "English",
+      "Korean"
+    ],
+    "education": "+2 Passed",
+    "passport_number": "D1357924",
+    "applied_jobs": [
+      "job_003"
+    ],
+    "stage": "applied",
+    "priority_score": 81,
+    "applied_at": "2025-08-24T10:30:00.000Z",
+    "shortlisted_at": null,
+    "cv_url": "/docs/maya_gurung_cv.pdf",
+    "photo_url": "/photos/maya_gurung.jpg",
+    "date_of_birth": "1994-07-12",
+    "marital_status": "Married",
+    "religion": "Buddhist",
+    "nationality": "Nepali",
+    "emergency_contact": {
+      "name": "Pemba Gurung",
+      "relation": "Husband",
+      "phone": "+977-9823456790"
+    },
+    "medical_status": "Fit",
+    "previous_experience": [
+      {
+        "company": "Everest Hotel",
+        "position": "Housekeeper",
+        "duration": "2 years",
+        "location": "Pokhara, Nepal"
+      }
+    ],
+    "salary_expectation": "850 QAR",
+    "availability": "Within 2 weeks"
+  },
+  {
+    "id": "candidate_005",
+    "name": "Prakash Kumar Rai",
+    "phone": "+977-9834567890",
+    "email": "prakash.rai@email.com",
+    "age": 26,
+    "gender": "Male",
+    "address": "Dharan, Nepal",
+    "experience": "1 year",
+    "skills": [
+      "Security",
+      "English",
+      "Physical Fitness"
+    ],
+    "education": "+2 Passed",
+    "passport_number": "E2468135",
+    "applied_jobs": [
+      "job_004"
+    ],
+    "stage": "applied",
+    "priority_score": 75,
+    "applied_at": "2025-08-27T10:30:00.000Z",
+    "shortlisted_at": null,
+    "cv_url": "/docs/prakash_rai_cv.pdf",
+    "photo_url": "/photos/prakash_rai.jpg",
+    "date_of_birth": "1998-02-28",
+    "marital_status": "Single",
+    "religion": "Hindu",
+    "nationality": "Nepali",
+    "emergency_contact": {
+      "name": "Kiran Rai",
+      "relation": "Father",
+      "phone": "+977-9834567891"
+    },
+    "medical_status": "Fit",
+    "previous_experience": [
+      {
+        "company": "Safe Guard Security",
+        "position": "Security Guard",
+        "duration": "1 year",
+        "location": "Dharan, Nepal"
+      }
+    ],
+    "salary_expectation": "2000 SAR",
+    "availability": "Immediate"
+  },
+  {
+    "id": "candidate_006",
+    "name": "Binod Sharma Poudel",
+    "phone": "+977-9845678901",
+    "email": "binod.poudel@email.com",
+    "age": 29,
+    "gender": "Male",
+    "address": "Butwal, Nepal",
+    "experience": "4 years",
+    "skills": [
+      "Cooking",
+      "Indian Cuisine",
+      "Continental Food",
+      "English",
+      "Hindi"
+    ],
+    "education": "SLC Passed",
+    "passport_number": "F3579246",
+    "applied_jobs": [
+      "job_001"
+    ],
+    "stage": "interview-passed",
+    "priority_score": 88,
+    "applied_at": "2025-08-20T10:30:00.000Z",
+    "shortlisted_at": "2025-08-22T10:30:00.000Z",
+    "cv_url": "/docs/binod_poudel_cv.pdf",
+    "photo_url": "/photos/binod_poudel.jpg",
+    "date_of_birth": "1995-09-12",
+    "marital_status": "Married",
+    "religion": "Hindu",
+    "nationality": "Nepali",
+    "emergency_contact": {
+      "name": "Kamala Poudel",
+      "relation": "Wife",
+      "phone": "+977-9845678902"
+    },
+    "medical_status": "Fit",
+    "previous_experience": [
+      {
+        "company": "Royal Restaurant",
+        "position": "Head Cook",
+        "duration": "3 years",
+        "location": "Butwal, Nepal"
+      }
+    ],
+    "salary_expectation": "1300 AED",
+    "availability": "Immediate"
+  },
+  {
+    "id": "candidate_007",
+    "name": "Deepak Tamang",
+    "phone": "+977-9856789012",
+    "email": "deepak.tamang@email.com",
+    "age": 35,
+    "gender": "Male",
+    "address": "Dhading, Nepal",
+    "experience": "8 years",
+    "skills": [
+      "Driving",
+      "Heavy Vehicle",
+      "Light Vehicle",
+      "English",
+      "Arabic",
+      "Mechanical Knowledge"
+    ],
+    "education": "+2 Passed",
+    "passport_number": "G4680357",
+    "applied_jobs": [
+      "job_002"
+    ],
+    "stage": "medical-scheduled",
+    "priority_score": 91,
+    "applied_at": "2025-08-18T10:30:00.000Z",
+    "shortlisted_at": "2025-08-20T10:30:00.000Z",
+    "cv_url": "/docs/deepak_tamang_cv.pdf",
+    "photo_url": "/photos/deepak_tamang.jpg",
+    "date_of_birth": "1989-04-25",
+    "marital_status": "Married",
+    "religion": "Buddhist",
+    "nationality": "Nepali",
+    "emergency_contact": {
+      "name": "Dolma Tamang",
+      "relation": "Wife",
+      "phone": "+977-9856789013"
+    },
+    "medical_status": "Fit",
+    "previous_experience": [
+      {
+        "company": "Mountain Transport Co.",
+        "position": "Heavy Vehicle Driver",
+        "duration": "5 years",
+        "location": "Kathmandu, Nepal"
+      },
+      {
+        "company": "Himalayan Logistics",
+        "position": "Truck Driver",
+        "duration": "3 years",
+        "location": "Dhading, Nepal"
+      }
+    ],
+    "licenses": [
+      {
+        "type": "Heavy Vehicle License",
+        "number": "HV789012",
+        "expiry": "2028-04-30"
+      },
+      {
+        "type": "Light Vehicle License",
+        "number": "LV345678",
+        "expiry": "2027-04-30"
+      }
+    ],
+    "salary_expectation": "1600 AED",
+    "availability": "Within 2 weeks"
+  },
+  {
+    "id": "candidate_008",
+    "name": "Sunita Rai",
+    "phone": "+977-9867890123",
+    "email": "sunita.rai@email.com",
+    "age": 27,
+    "gender": "Female",
+    "address": "Jhapa, Nepal",
+    "experience": "3 years",
+    "skills": [
+      "Housekeeping",
+      "Cleaning",
+      "Laundry",
+      "English",
+      "Hindi"
+    ],
+    "education": "+2 Passed",
+    "passport_number": "H5791468",
+    "applied_jobs": [
+      "job_003"
+    ],
+    "stage": "visa-application",
+    "priority_score": 86,
+    "applied_at": "2025-08-15T10:30:00.000Z",
+    "shortlisted_at": "2025-08-17T10:30:00.000Z",
+    "cv_url": "/docs/sunita_rai_cv.pdf",
+    "photo_url": "/photos/sunita_rai.jpg",
+    "date_of_birth": "1997-01-18",
+    "marital_status": "Single",
+    "religion": "Hindu",
+    "nationality": "Nepali",
+    "emergency_contact": {
+      "name": "Dhan Bahadur Rai",
+      "relation": "Father",
+      "phone": "+977-9867890124"
+    },
+    "medical_status": "Fit",
+    "previous_experience": [
+      {
+        "company": "Hotel Sunrise",
+        "position": "Housekeeper",
+        "duration": "2 years",
+        "location": "Jhapa, Nepal"
+      },
+      {
+        "company": "Clean Home Services",
+        "position": "Cleaner",
+        "duration": "1 year",
+        "location": "Jhapa, Nepal"
+      }
+    ],
+    "salary_expectation": "950 QAR",
+    "availability": "Within 1 month"
+  },
+  {
+    "id": "candidate_009",
+    "name": "Krishna Bahadur Magar",
+    "phone": "+977-9878901234",
+    "email": "krishna.magar@email.com",
+    "age": 31,
+    "gender": "Male",
+    "address": "Palpa, Nepal",
+    "experience": "6 years",
+    "skills": [
+      "Cooking",
+      "Indian Cuisine",
+      "Chinese Food",
+      "Continental Food",
+      "English",
+      "Hindi",
+      "Kitchen Management"
+    ],
+    "education": "Bachelor Degree",
+    "passport_number": "I6802579",
+    "applied_jobs": [
+      "job_001"
+    ],
+    "stage": "ready-to-fly",
+    "priority_score": 94,
+    "applied_at": "2025-08-10T10:30:00.000Z",
+    "shortlisted_at": "2025-08-12T10:30:00.000Z",
+    "cv_url": "/docs/krishna_magar_cv.pdf",
+    "photo_url": "/photos/krishna_magar.jpg",
+    "date_of_birth": "1993-06-30",
+    "marital_status": "Married",
+    "religion": "Hindu",
+    "nationality": "Nepali",
+    "emergency_contact": {
+      "name": "Sarita Magar",
+      "relation": "Wife",
+      "phone": "+977-9878901235"
+    },
+    "medical_status": "Fit",
+    "previous_experience": [
+      {
+        "company": "Five Star Hotel",
+        "position": "Senior Cook",
+        "duration": "4 years",
+        "location": "Pokhara, Nepal"
+      },
+      {
+        "company": "International Restaurant",
+        "position": "Chef Assistant",
+        "duration": "2 years",
+        "location": "Kathmandu, Nepal"
+      }
+    ],
+    "salary_expectation": "1400 AED",
+    "availability": "Immediate"
+  }
+]

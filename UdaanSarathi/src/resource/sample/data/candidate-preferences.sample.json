@@ -1,0 +1,62 @@
+[
+  {
+    "id": 1,
+    "preference_type": "job_category",
+    "value": "Food Service",
+    "description": "Restaurant and kitchen work"
+  },
+  {
+    "id": 2,
+    "preference_type": "job_category", 
+    "value": "Transportation",
+    "description": "Driving and logistics"
+  },
+  {
+    "id": 3,
+    "preference_type": "job_category",
+    "value": "Maintenance",
+    "description": "Cleaning and facility maintenance"
+  },
+  {
+    "id": 4,
+    "preference_type": "job_category",
+    "value": "Security",
+    "description": "Security and surveillance"
+  },
+  {
+    "id": 5,
+    "preference_type": "country",
+    "value": "UAE",
+    "description": "United Arab Emirates"
+  },
+  {
+    "id": 6,
+    "preference_type": "country",
+    "value": "Saudi Arabia", 
+    "description": "Kingdom of Saudi Arabia"
+  },
+  {
+    "id": 7,
+    "preference_type": "country",
+    "value": "Qatar",
+    "description": "State of Qatar"
+  },
+  {
+    "id": 8,
+    "preference_type": "salary_range",
+    "value": "1000-1500",
+    "description": "Entry level salary range (AED)"
+  },
+  {
+    "id": 9,
+    "preference_type": "salary_range",
+    "value": "1500-2500",
+    "description": "Mid level salary range (AED)"
+  },
+  {
+    "id": 10,
+    "preference_type": "salary_range",
+    "value": "2500+",
+    "description": "Senior level salary range (AED)"
+  }
+]

@@ -1,0 +1,329 @@
+[
+  {
+    "id": "app_candidate_001",
+    "candidate_id": "candidate_001",
+    "job_id": "job_001",
+    "stage": "applied",
+    "applied_at": "2025-08-25T10:30:00.000Z",
+    "shortlisted_at": null,
+    "interviewed_at": null,
+    "decision_at": null,
+    "priority_score": 85,
+    "notes": "",
+    "documents": {
+      "cv": "/docs/ram_thapa_cv.pdf",
+      "photo": "/photos/ram_thapa.jpg",
+      "certificates": [
+        "/docs/ram_thapa_cooking_certificate.pdf"
+      ],
+      "passport": "/docs/ram_bahadur_thapa_passport.pdf"
+    },
+    "status": "active",
+    "recruiter_notes": "Good cooking experience, needs language improvement",
+    "score_breakdown": {
+      "experience": 8,
+      "skills": 9,
+      "language": 6,
+      "education": 7,
+      "overall": 8.5
+    }
+  },
+  {
+    "id": "app_candidate_002",
+    "candidate_id": "candidate_002", 
+    "job_id": "job_003",
+    "stage": "interview-passed",
+    "applied_at": "2025-08-23T10:30:00.000Z",
+    "shortlisted_at": "2025-08-26T10:30:00.000Z",
+    "interviewed_at": "2025-08-28T14:30:00.000Z",
+    "decision_at": null,
+    "priority_score": 78,
+    "notes": "Excellent communication skills, previous experience in cleaning",
+    "interview_remarks": "Candidate showed excellent attitude and willingness to learn. Good communication skills in basic English. Previous experience in hotel cleaning is relevant. Recommended for next stage.",
+    "interview_type": "In-person",
+    "documents": [
+      {
+        "id": "doc_001",
+        "name": "sita_shrestha_cv.pdf",
+        "stage": "applied",
+        "size": 245760,
+        "type": "application/pdf",
+        "uploaded_at": "2025-08-23T10:30:00.000Z"
+      },
+      {
+        "id": "doc_002", 
+        "name": "passport_copy.pdf",
+        "stage": "interview-passed",
+        "size": 1024000,
+        "type": "application/pdf",
+        "uploaded_at": "2025-08-28T15:00:00.000Z"
+      }
+    ],
+    "status": "active",
+    "recruiter_notes": "Strong candidate for cleaning position",
+    "score_breakdown": {
+      "experience": 7,
+      "skills": 8,
+      "language": 9,
+      "education": 8,
+      "overall": 7.8
+    }
+  },
+  {
+    "id": "app_candidate_003",
+    "candidate_id": "candidate_003",
+    "job_id": "job_002", 
+    "stage": "scheduled",
+    "applied_at": "2025-08-21T10:30:00.000Z",
+    "shortlisted_at": "2025-08-24T10:30:00.000Z",
+    "interviewed_at": null,
+    "decision_at": null,
+    "priority_score": 92,
+    "notes": "Excellent driving experience, speaks Arabic",
+    "documents": {
+      "cv": "/docs/arjun_thakuri_cv.pdf",
+      "photo": "/photos/arjun_thakuri.jpg",
+      "certificates": [
+        "/docs/arjun_thakuri_driving_license.pdf",
+        "/docs/arjun_thakuri_heavy_vehicle_certificate.pdf"
+      ],
+      "passport": "/docs/arjun_singh_thakuri_passport.pdf"
+    },
+    "status": "active",
+    "recruiter_notes": "Perfect match for driving position, multiple licenses",
+    "score_breakdown": {
+      "experience": 10,
+      "skills": 9,
+      "language": 9,
+      "education": 9,
+      "overall": 9.2
+    }
+  },
+  {
+    "id": "app_candidate_004",
+    "candidate_id": "candidate_004",
+    "job_id": "job_003",
+    "stage": "applied",
+    "applied_at": "2025-08-24T10:30:00.000Z",
+    "shortlisted_at": null,
+    "interviewed_at": null,
+    "decision_at": null,
+    "priority_score": 81,
+    "notes": "",
+    "documents": {
+      "cv": "/docs/maya_gurung_cv.pdf",
+      "photo": "/photos/maya_gurung.jpg",
+      "certificates": [
+        "/docs/maya_gurung_housekeeping_certificate.pdf"
+      ],
+      "passport": "/docs/maya_devi_gurung_passport.pdf"
+    },
+    "status": "active",
+    "recruiter_notes": "Hotel experience is valuable",
+    "score_breakdown": {
+      "experience": 8,
+      "skills": 8,
+      "language": 8,
+      "education": 8,
+      "overall": 8.1
+    }
+  },
+  {
+    "id": "app_candidate_005",
+    "candidate_id": "candidate_005",
+    "job_id": "job_004",
+    "stage": "applied",
+    "applied_at": "2025-08-27T10:30:00.000Z",
+    "shortlisted_at": null,
+    "interviewed_at": null,
+    "decision_at": null,
+    "priority_score": 75,
+    "notes": "",
+    "documents": {
+      "cv": "/docs/prakash_rai_cv.pdf",
+      "photo": "/photos/prakash_rai.jpg",
+      "certificates": [
+        "/docs/prakash_rai_security_training.pdf"
+      ],
+      "passport": "/docs/prakash_kumar_rai_passport.pdf"
+    },
+    "status": "active",
+    "recruiter_notes": "Young candidate with potential",
+    "score_breakdown": {
+      "experience": 6,
+      "skills": 7,
+      "language": 8,
+      "education": 8,
+      "overall": 7.5
+    }
+  },
+  {
+    "id": "app_candidate_006",
+    "candidate_id": "candidate_006",
+    "job_id": "job_001",
+    "stage": "interview-passed",
+    "applied_at": "2025-08-20T10:30:00.000Z",
+    "shortlisted_at": "2025-08-22T10:30:00.000Z",
+    "interviewed_at": "2025-08-28T14:30:00.000Z",
+    "decision_at": null,
+    "priority_score": 88,
+    "notes": "Excellent interview performance",
+    "documents": [
+      {
+        "id": "doc_001",
+        "name": "CV.pdf",
+        "type": "application/pdf",
+        "stage": "applied",
+        "uploaded_at": "2025-08-20T10:30:00.000Z"
+      },
+      {
+        "id": "doc_002", 
+        "name": "Interview_Notes.pdf",
+        "type": "application/pdf",
+        "stage": "interview-passed",
+        "uploaded_at": "2025-08-28T15:00:00.000Z"
+      }
+    ],
+    "status": "active",
+    "recruiter_notes": "Passed interview with flying colors. Ready for next stage.",
+    "score_breakdown": {
+      "experience": 9,
+      "skills": 9,
+      "language": 8,
+      "education": 8,
+      "overall": 8.8
+    }
+  },
+  {
+    "id": "app_candidate_007",
+    "candidate_id": "candidate_007",
+    "job_id": "job_002",
+    "stage": "medical-scheduled",
+    "applied_at": "2025-08-18T10:30:00.000Z",
+    "shortlisted_at": "2025-08-20T10:30:00.000Z",
+    "interviewed_at": "2025-08-25T09:00:00.000Z",
+    "decision_at": null,
+    "priority_score": 91,
+    "notes": "Medical scheduled for Sept 5th",
+    "documents": [
+      {
+        "id": "doc_003",
+        "name": "CV.pdf",
+        "type": "application/pdf",
+        "stage": "applied",
+        "uploaded_at": "2025-08-18T10:30:00.000Z"
+      },
+      {
+        "id": "doc_004",
+        "name": "Medical_Appointment.pdf",
+        "type": "application/pdf", 
+        "stage": "medical-scheduled",
+        "uploaded_at": "2025-09-01T10:00:00.000Z"
+      }
+    ],
+    "status": "active",
+    "recruiter_notes": "Excellent driver candidate. Medical appointment confirmed.",
+    "score_breakdown": {
+      "experience": 10,
+      "skills": 9,
+      "language": 9,
+      "education": 8,
+      "overall": 9.1
+    }
+  },
+  {
+    "id": "app_candidate_008",
+    "candidate_id": "candidate_008",
+    "job_id": "job_003",
+    "stage": "visa-application",
+    "applied_at": "2025-08-15T10:30:00.000Z",
+    "shortlisted_at": "2025-08-17T10:30:00.000Z",
+    "interviewed_at": "2025-08-22T11:00:00.000Z",
+    "decision_at": null,
+    "priority_score": 86,
+    "notes": "Visa application submitted",
+    "documents": [
+      {
+        "id": "doc_005",
+        "name": "CV.pdf",
+        "type": "application/pdf",
+        "stage": "applied",
+        "uploaded_at": "2025-08-15T10:30:00.000Z"
+      },
+      {
+        "id": "doc_006",
+        "name": "Medical_Certificate.pdf",
+        "type": "application/pdf",
+        "stage": "medical-passed",
+        "uploaded_at": "2025-08-30T14:00:00.000Z"
+      },
+      {
+        "id": "doc_007",
+        "name": "Visa_Application.pdf",
+        "type": "application/pdf",
+        "stage": "visa-application",
+        "uploaded_at": "2025-09-02T09:00:00.000Z"
+      }
+    ],
+    "status": "active",
+    "recruiter_notes": "All documents submitted for visa processing.",
+    "score_breakdown": {
+      "experience": 8,
+      "skills": 9,
+      "language": 8,
+      "education": 9,
+      "overall": 8.6
+    }
+  },
+  {
+    "id": "app_candidate_009",
+    "candidate_id": "candidate_009",
+    "job_id": "job_001",
+    "stage": "ready-to-fly",
+    "applied_at": "2025-08-10T10:30:00.000Z",
+    "shortlisted_at": "2025-08-12T10:30:00.000Z",
+    "interviewed_at": "2025-08-18T16:00:00.000Z",
+    "decision_at": null,
+    "priority_score": 94,
+    "notes": "Ready for deployment",
+    "documents": [
+      {
+        "id": "doc_008",
+        "name": "CV.pdf",
+        "type": "application/pdf",
+        "stage": "applied",
+        "uploaded_at": "2025-08-10T10:30:00.000Z"
+      },
+      {
+        "id": "doc_009",
+        "name": "Medical_Certificate.pdf",
+        "type": "application/pdf",
+        "stage": "medical-passed",
+        "uploaded_at": "2025-08-25T14:00:00.000Z"
+      },
+      {
+        "id": "doc_010",
+        "name": "Visa_Approval.pdf",
+        "type": "application/pdf",
+        "stage": "visa-approved",
+        "uploaded_at": "2025-09-01T11:00:00.000Z"
+      },
+      {
+        "id": "doc_011",
+        "name": "Flight_Ticket.pdf",
+        "type": "application/pdf",
+        "stage": "ready-to-fly",
+        "uploaded_at": "2025-09-03T08:00:00.000Z"
+      }
+    ],
+    "status": "active",
+    "recruiter_notes": "All processes completed. Flight booked for Sept 10th.",
+    "score_breakdown": {
+      "experience": 10,
+      "skills": 10,
+      "language": 9,
+      "education": 9,
+      "overall": 9.4
+    }
+  }
+]

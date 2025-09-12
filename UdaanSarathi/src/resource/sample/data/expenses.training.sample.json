@@ -1,0 +1,8 @@
+{
+  "type": "Training",
+  "who_pays": "company",
+  "is_free": true,
+  "amount": null,
+  "currency": null,
+  "notes": "2-week orientation and job-specific training provided at no cost to worker"
+}

@@ -1,0 +1,8 @@
+{
+  "type": "Travel",
+  "who_pays": "company",
+  "is_free": false,
+  "amount": 1200,
+  "currency": "AED",
+  "notes": "Round-trip airfare from Nepal to UAE, company covers full cost"
+}

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Paste Prevention</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .container { max-width: 400px; margin: 0 auto; }
+        .field { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+        .error { color: red; margin-top: 10px; padding: 10px; background: #ffe6e6; border-radius: 5px; }
+        .instructions { background: #e6f3ff; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="instructions">
+            <h3>🧪 Test Paste Prevention</h3>
+            <p>Try to paste text in the fields below using:</p>
+            <ul>
+                <li>Ctrl+V (Windows/Linux) or Cmd+V (Mac)</li>
+                <li>Right-click → Paste</li>
+                <li>Drag and drop text</li>
+            </ul>
+            <p>All methods should be blocked and show an error message.</p>
+        </div>
+
+        <div class="field">
+            <label for="username">Username:</label>
+            <input 
+                type="text" 
+                id="username" 
+                placeholder="Try to paste here..."
+                onpaste="handlePaste(event)"
+                oncontextmenu="handleContextMenu(event)"
+                ondrop="handleDrop(event)"
+                ondragover="event.preventDefault()"
+                onkeydown="handleKeyDown(event)"
+            />
+        </div>
+
+        <div class="field">
+            <label for="password">Password:</label>
+            <input 
+                type="password" 
+                id="password" 
+                placeholder="Try to paste here..."
+                onpaste="handlePaste(event)"
+                oncontextmenu="handleContextMenu(event)"
+                ondrop="handleDrop(event)"
+                ondragover="event.preventDefault()"
+                onkeydown="handleKeyDown(event)"
+            />
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+    </div>
+
+    <script>
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function handlePaste(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            showError('🔒 Pasting is disabled for security reasons. Please type your credentials manually.');
+            return false;
+        }
+
+        function handleContextMenu(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            showError('🔒 Right-click is disabled on login fields for security.');
+            return false;
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            showError('🔒 Drag and drop is disabled on login fields for security.');
+            return false;
+        }
+
+        function handleKeyDown(e) {
+            // Prevent Ctrl+V (Windows/Linux) and Cmd+V (Mac)
+            if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+                e.preventDefault();
+                e.stopPropagation();
+                showError('🔒 Keyboard paste (Ctrl+V/Cmd+V) is disabled for security.');
+                return false;
+            }
+        }
+    </script>
+</body>
+</html>

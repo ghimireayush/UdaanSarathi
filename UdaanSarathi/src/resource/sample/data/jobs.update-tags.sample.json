@@ -1,0 +1,11 @@
+{
+  "skills": ["cooking", "food preparation", "kitchen management", "hygiene standards"],
+  "education_requirements": ["High School Diploma", "Culinary Certificate (preferred)"],
+  "experience_requirements": {
+    "min_years": 2,
+    "preferred_years": 5,
+    "domains": ["restaurant cooking", "commercial kitchen", "food service"]
+  },
+  "canonical_title_ids": [101, 102],
+  "canonical_title_names": ["Cook", "Kitchen Staff"]
+}

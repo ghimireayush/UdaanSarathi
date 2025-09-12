@@ -1,0 +1,8 @@
+{
+  "type": "Medical",
+  "who_pays": "company",
+  "is_free": true,
+  "amount": null,
+  "currency": null,
+  "notes": "Pre-employment medical examination and annual health checkups provided by company"
+}

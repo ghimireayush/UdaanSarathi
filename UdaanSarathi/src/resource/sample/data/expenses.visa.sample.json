@@ -1,0 +1,8 @@
+{
+  "type": "Visa/Permit",
+  "who_pays": "shared",
+  "is_free": false,
+  "amount": 800,
+  "currency": "AED",
+  "notes": "Work visa and Emirates ID processing - cost shared between company and worker"
+}

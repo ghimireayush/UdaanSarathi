@@ -1,0 +1,496 @@
+/* Interactive UI Components Styles */
+
+/* Custom animations */
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes bounce {
+  0%, 20%, 53%, 80%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  40%, 43% {
+    transform: translate3d(0, -30px, 0);
+  }
+  70% {
+    transform: translate3d(0, -15px, 0);
+  }
+  90% {
+    transform: translate3d(0, -4px, 0);
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-10px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(10px);
+  }
+}
+
+/* Interactive Button Enhancements */
+.interactive-button {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.interactive-button:hover {
+  transform: translateY(-1px);
+}
+
+.interactive-button:active {
+  transform: translateY(0);
+}
+
+.interactive-button.loading {
+  pointer-events: none;
+}
+
+/* Interactive Card Enhancements */
+.interactive-card {
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.interactive-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.interactive-card.clickable:active {
+  transform: translateY(0);
+}
+
+/* Interactive Modal Enhancements */
+.interactive-modal-overlay {
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease;
+}
+
+.interactive-modal-content {
+  animation: slideIn 0.2s ease;
+}
+
+.interactive-modal-content.closing {
+  animation: slideOut 0.2s ease;
+}
+
+/* Interactive Dropdown Enhancements */
+.interactive-dropdown {
+  position: relative;
+}
+
+.interactive-dropdown-menu {
+  animation: slideIn 0.15s ease;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.interactive-dropdown-option {
+  transition: all 0.1s ease;
+}
+
+.interactive-dropdown-option:hover {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: rgb(59, 130, 246);
+}
+
+/* Interactive Search Enhancements */
+.interactive-search {
+  position: relative;
+}
+
+.interactive-search-input {
+  transition: all 0.2s ease;
+}
+
+.interactive-search-input:focus {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.interactive-search-suggestions {
+  animation: slideIn 0.15s ease;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* Interactive Filter Enhancements */
+.interactive-filter {
+  transition: all 0.3s ease;
+}
+
+.interactive-filter.expanded {
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* Interactive Notification Enhancements */
+.interactive-notification {
+  animation: slideIn 0.3s ease;
+}
+
+.interactive-notification.closing {
+  animation: slideOut 0.3s ease;
+}
+
+.interactive-notification.success {
+  border-left: 4px solid #10b981;
+}
+
+.interactive-notification.error {
+  border-left: 4px solid #ef4444;
+}
+
+.interactive-notification.warning {
+  border-left: 4px solid #f59e0b;
+}
+
+.interactive-notification.info {
+  border-left: 4px solid #3b82f6;
+}
+
+/* Interactive Loader Enhancements */
+.interactive-loader-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.interactive-loader-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  animation: pulse 1.4s ease-in-out infinite both;
+}
+
+.interactive-loader-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.interactive-loader-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+.interactive-loader-bars {
+  display: flex;
+  gap: 2px;
+  align-items: end;
+}
+
+.interactive-loader-bar {
+  width: 4px;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.interactive-loader-bar:nth-child(1) {
+  height: 12px;
+  animation-delay: -0.4s;
+}
+
+.interactive-loader-bar:nth-child(2) {
+  height: 20px;
+  animation-delay: -0.3s;
+}
+
+.interactive-loader-bar:nth-child(3) {
+  height: 16px;
+  animation-delay: -0.2s;
+}
+
+.interactive-loader-bar:nth-child(4) {
+  height: 24px;
+  animation-delay: -0.1s;
+}
+
+/* Interactive Pagination Enhancements */
+.interactive-pagination {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.interactive-pagination-button {
+  transition: all 0.2s ease;
+}
+
+.interactive-pagination-button:hover {
+  transform: translateY(-1px);
+}
+
+.interactive-pagination-button.active {
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+/* Interactive Tooltip Enhancements */
+.interactive-tooltip {
+  animation: fadeIn 0.2s ease;
+  z-index: 1000;
+}
+
+.interactive-tooltip-arrow {
+  position: absolute;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .interactive-modal-content {
+    margin: 1rem;
+    max-height: calc(100vh - 2rem);
+  }
+  
+  .interactive-dropdown-menu {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  
+  .interactive-search-suggestions {
+    max-height: 150px;
+    overflow-y: auto;
+  }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .interactive-card {
+    background-color: #1f2937;
+    border-color: #374151;
+    color: #f9fafb;
+  }
+  
+  .interactive-modal-content {
+    background-color: #1f2937;
+    color: #f9fafb;
+  }
+  
+  .interactive-dropdown-menu {
+    background-color: #1f2937;
+    border-color: #374151;
+    color: #f9fafb;
+  }
+  
+  .interactive-notification {
+    background-color: #1f2937;
+    color: #f9fafb;
+  }
+}
+
+/* Accessibility Enhancements */
+.interactive-button:focus,
+.interactive-card:focus,
+.interactive-dropdown:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .interactive-button,
+  .interactive-card,
+  .interactive-modal-content,
+  .interactive-dropdown-menu,
+  .interactive-search-suggestions,
+  .interactive-notification,
+  .interactive-tooltip {
+    animation: none;
+    transition: none;
+  }
+  
+  .interactive-button:hover,
+  .interactive-card:hover {
+    transform: none;
+  }
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+  .interactive-button,
+  .interactive-card,
+  .interactive-dropdown-menu {
+    border: 2px solid;
+  }
+  
+  .interactive-button:focus,
+  .interactive-card:focus,
+  .interactive-dropdown:focus {
+    outline: 3px solid;
+    outline-offset: 3px;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .interactive-modal-overlay,
+  .interactive-dropdown-menu,
+  .interactive-search-suggestions,
+  .interactive-notification,
+  .interactive-tooltip {
+    display: none !important;
+  }
+  
+  .interactive-button,
+  .interactive-card {
+    box-shadow: none;
+    transform: none;
+  }
+}
+
+/* Custom Scrollbars */
+.interactive-dropdown-menu::-webkit-scrollbar,
+.interactive-search-suggestions::-webkit-scrollbar {
+  width: 6px;
+}
+
+.interactive-dropdown-menu::-webkit-scrollbar-track,
+.interactive-search-suggestions::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.interactive-dropdown-menu::-webkit-scrollbar-thumb,
+.interactive-search-suggestions::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.interactive-dropdown-menu::-webkit-scrollbar-thumb:hover,
+.interactive-search-suggestions::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Loading States */
+.loading-shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Error States */
+.error-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+/* Success States */
+.success-bounce {
+  animation: bounce 0.6s ease-in-out;
+}
+
+/* Focus Management */
+.focus-trap {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.focus-trap.active {
+  pointer-events: auto;
+}
+
+/* Utility Classes */
+.interactive-hidden {
+  display: none !important;
+}
+
+.interactive-visible {
+  display: block !important;
+}
+
+.interactive-fade-in {
+  animation: fadeIn 0.3s ease;
+}
+
+.interactive-fade-out {
+  animation: fadeOut 0.3s ease;
+}
+
+.interactive-slide-in {
+  animation: slideIn 0.3s ease;
+}
+
+.interactive-slide-out {
+  animation: slideOut 0.3s ease;
+}
+
+.interactive-pulse {
+  animation: pulse 2s infinite;
+}
+
+.interactive-bounce {
+  animation: bounce 1s infinite;
+}
+
+.interactive-shake {
+  animation: shake 0.5s ease-in-out;
+}

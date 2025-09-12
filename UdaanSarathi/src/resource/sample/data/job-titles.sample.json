@@ -1,0 +1,46 @@
+[
+  {
+    "id": 101,
+    "title": "Cook",
+    "category": "Food Service",
+    "skills": ["cooking", "food preparation", "kitchen management"],
+    "typical_salary_range": {
+      "min": 1500,
+      "max": 2500,
+      "currency": "AED"
+    }
+  },
+  {
+    "id": 102,
+    "title": "Kitchen Staff",
+    "category": "Food Service",
+    "skills": ["food preparation", "cleaning", "basic cooking"],
+    "typical_salary_range": {
+      "min": 1200,
+      "max": 1800,
+      "currency": "AED"
+    }
+  },
+  {
+    "id": 201,
+    "title": "Driver",
+    "category": "Transportation",
+    "skills": ["driving", "navigation", "vehicle maintenance"],
+    "typical_salary_range": {
+      "min": 1800,
+      "max": 2800,
+      "currency": "AED"
+    }
+  },
+  {
+    "id": 301,
+    "title": "Cleaner",
+    "category": "Maintenance",
+    "skills": ["cleaning", "sanitation", "equipment operation"],
+    "typical_salary_range": {
+      "min": 1000,
+      "max": 1600,
+      "currency": "AED"
+    }
+  }
+]
